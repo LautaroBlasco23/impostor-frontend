@@ -1,42 +1,119 @@
-import { useEffect } from 'react';
-import { useGame } from '../context/GameContext';
-import { Users, Crown, Check, X, Copy, LogOut } from 'lucide-react';
+import { useCallback } from 'react';
+import { useGame } from '../context';
+import { userService, gameService } from '../services';
+import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload } from '../types';
+import { useWebSocket } from '../websocket/useWebSocket';
 
 export default function RoomLobby() {
   const { state, dispatch } = useGame();
   const room = state.currentRoom;
   const currentUser = state.currentUser;
 
-  useEffect(() => {
-    if (!room || room.status !== 'waiting') return;
+  const handleUserJoined = useCallback(
+    (payload: UserJoinedPayload) => {
+      dispatch({
+        type: 'ADD_PLAYER',
+        player: {
+          id: payload.user_id,
+          username: payload.nickname,
+          isReady: false,
+          isImpostor: false,
+          isAlive: true,
+          votedFor: null,
+        },
+      });
+    },
+    [dispatch]
+  );
 
-    const allReady = room.players.length >= 2 && room.players.every((p) => p.isReady);
-    if (allReady) {
-      const timer = setTimeout(() => {
-        dispatch({ type: 'START_GAME' });
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [room, dispatch]);
+  const handleUserLeft = useCallback(
+    (payload: UserLeftPayload) => {
+      dispatch({ type: 'REMOVE_PLAYER', playerId: payload.user_id });
+    },
+    [dispatch]
+  );
 
-  const handleToggleReady = () => {
+  const handleUserReady = useCallback(
+    (payload: UserReadyPayload) => {
+      dispatch({
+        type: 'UPDATE_PLAYER',
+        playerId: payload.user_id,
+        updates: { isReady: payload.is_ready },
+      });
+    },
+    [dispatch]
+  );
+
+  const handleGameStarted = useCallback(
+    (payload: GameStartedPayload) => {
+      const isImpostor = payload.impostor_id === currentUser?.id;
+      dispatch({
+        type: 'START_GAME',
+        word: isImpostor ? null : payload.current_word,
+        impostorId: payload.impostor_id,
+        gameId: payload.game_id,
+      });
+    },
+    [dispatch, currentUser?.id]
+  );
+
+  const { isConnected } = useWebSocket({
+    userId: currentUser?.id ?? '',
+    roomId: room?.code ?? '',
+    onUserJoined: handleUserJoined,
+    onUserLeft: handleUserLeft,
+    onUserReady: handleUserReady,
+    onGameStarted: handleGameStarted,
+  });
+
+  const handleToggleReady = async () => {
     if (!currentUser) return;
-    dispatch({ type: 'TOGGLE_READY', userId: currentUser.id });
-  };
 
-  const handleLeaveRoom = () => {
-    dispatch({ type: 'LEAVE_ROOM' });
-  };
-
-  const handleCopyCode = () => {
-    if (room) {
-      navigator.clipboard.writeText(room.code);
+    try {
+      await userService.toggleReady(currentUser.id);
+      dispatch({
+        type: 'UPDATE_PLAYER',
+        playerId: currentUser.id,
+        updates: { isReady: !currentUser.isReady },
+      });
+    } catch (err) {
+      console.error('Failed to toggle ready:', err);
     }
+  };
+
+  const handleStartGame = async () => {
+    if (!room) return;
+
+    try {
+      await gameService.start({ room_id: room.code });
+    } catch (err) {
+      console.error('Failed to start game:', err);
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    if (!currentUser) return;
+
+    try {
+      await userService.delete(currentUser.id);
+    } catch {
+      // Continue with local cleanup
+    } finally {
+      dispatch({ type: 'LEAVE_ROOM' });
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!room) return;
+    await navigator.clipboard.writeText(room.code);
   };
 
   if (!room || !currentUser) return null;
 
   const allReady = room.players.length >= 2 && room.players.every((p) => p.isReady);
+  const isHost = currentUser.id === room.hostId;
+  const canStart = allReady && isHost;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
@@ -54,19 +131,29 @@ export default function RoomLobby() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleLeaveRoom}
-              className="p-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-2">
+              <div
+                className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}
+                title={isConnected ? 'Connected' : 'Disconnected'}
+              >
+                {isConnected ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
+              </div>
+              <button
+                onClick={handleLeaveRoom}
+                className="p-2 text-gray-600 hover:bg-red-50 hover:text-red-600 rounded-lg transition"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Room Code</p>
-                <p className="text-3xl font-bold text-blue-600 tracking-wider">{room.code}</p>
+                <p className="text-2xl md:text-3xl font-bold text-blue-600 tracking-wider break-all">
+                  {room.code}
+                </p>
               </div>
               <button
                 onClick={handleCopyCode}
@@ -83,17 +170,15 @@ export default function RoomLobby() {
               {room.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
-                    player.isReady
-                      ? 'bg-green-50 border-green-200'
-                      : 'bg-gray-50 border-gray-200'
-                  }`}
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${player.isReady
+                    ? 'bg-green-50 border-green-200'
+                    : 'bg-gray-50 border-gray-200'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
-                        player.isReady ? 'bg-green-500' : 'bg-gray-400'
-                      }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${player.isReady ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
                     >
                       {player.username.charAt(0).toUpperCase()}
                     </div>
@@ -102,18 +187,21 @@ export default function RoomLobby() {
                       {player.id === room.hostId && (
                         <Crown className="w-4 h-4 text-yellow-500" />
                       )}
+                      {player.id === currentUser.id && (
+                        <span className="text-xs text-gray-500">(you)</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {player.isReady ? (
                       <span className="flex items-center gap-1 text-green-600 font-medium">
                         <Check className="w-5 h-5" />
-                        Ready
+                        <span className="hidden sm:inline">Ready</span>
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-gray-500">
                         <X className="w-5 h-5" />
-                        Not Ready
+                        <span className="hidden sm:inline">Not Ready</span>
                       </span>
                     )}
                   </div>
@@ -130,24 +218,40 @@ export default function RoomLobby() {
             </div>
           )}
 
-          {allReady && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-              <p className="text-green-700 font-medium text-center animate-pulse">
-                Starting game...
+          {!isConnected && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reconnecting to server...
               </p>
             </div>
           )}
 
-          <button
-            onClick={handleToggleReady}
-            className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg ${
-              currentUser.isReady
+          <div className="space-y-3">
+            <button
+              onClick={handleToggleReady}
+              disabled={!isConnected}
+              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${currentUser.isReady
                 ? 'bg-gray-400 hover:bg-gray-500 text-white'
                 : 'bg-green-500 hover:bg-green-600 text-white'
-            }`}
-          >
-            {currentUser.isReady ? 'Not Ready' : 'Ready'}
-          </button>
+                }`}
+            >
+              {currentUser.isReady ? 'Cancel Ready' : "I'm Ready"}
+            </button>
+
+            {isHost && (
+              <button
+                onClick={handleStartGame}
+                disabled={!canStart || !isConnected}
+                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${canStart && isConnected
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+              >
+                {allReady ? 'Start Game' : 'Waiting for all players...'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

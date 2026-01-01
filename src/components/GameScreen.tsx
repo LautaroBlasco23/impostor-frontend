@@ -1,12 +1,106 @@
-import { useState } from 'react';
-import { useGame } from '../context/GameContext';
-import { Eye, EyeOff, Trophy, XCircle, AlertCircle } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { useGame } from '../context/gameContext';
+import { Eye, EyeOff, Trophy, XCircle, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { GameEndPayload, UserEliminatedPayload, UserVotedPayload } from '../types';
+import { useWebSocket } from '../websocket/useWebSocket';
+import { gameService, userService } from '../services';
 
 export default function GameScreen() {
   const { state, dispatch } = useGame();
   const room = state.currentRoom;
   const currentUser = state.currentUser;
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [isVoting, setIsVoting] = useState(false);
+
+  const handleUserVoted = useCallback(
+    (payload: UserVotedPayload) => {
+      dispatch({
+        type: 'UPDATE_PLAYER',
+        playerId: payload.voter_id,
+        updates: { votedFor: payload.target_id },
+      });
+    },
+    [dispatch]
+  );
+
+  const handleUserEliminated = useCallback(
+    (payload: UserEliminatedPayload) => {
+      dispatch({
+        type: 'ELIMINATE_PLAYER',
+        playerId: payload.user_id,
+        wasImpostor: payload.was_impostor,
+      });
+    },
+    [dispatch]
+  );
+
+  const handleGameWon = useCallback(
+    (payload: GameEndPayload) => {
+      dispatch({
+        type: 'END_GAME',
+        winner: payload.winner,
+        word: payload.word,
+        impostorId: payload.impostor_id,
+      });
+    },
+    [dispatch]
+  );
+
+  const handleGameLost = useCallback(
+    (payload: GameEndPayload) => {
+      dispatch({
+        type: 'END_GAME',
+        winner: payload.winner,
+        word: payload.word,
+        impostorId: payload.impostor_id,
+      });
+    },
+    [dispatch]
+  );
+
+  const { isConnected } = useWebSocket({
+    userId: currentUser?.id ?? '',
+    roomId: room?.code ?? '',
+    onUserVoted: handleUserVoted,
+    onUserEliminated: handleUserEliminated,
+    onGameWon: handleGameWon,
+    onGameLost: handleGameLost,
+  });
+
+  const handleVote = async () => {
+    if (!selectedPlayer || !currentUser?.isAlive || !room || !state.gameId) return;
+
+    setIsVoting(true);
+    try {
+      await gameService.vote({
+        game_id: state.gameId,
+        voter_id: currentUser.id,
+        target_id: selectedPlayer,
+      });
+
+      dispatch({
+        type: 'UPDATE_PLAYER',
+        playerId: currentUser.id,
+        updates: { votedFor: selectedPlayer },
+      });
+    } catch (err) {
+      console.error('Failed to vote:', err);
+    } finally {
+      setIsVoting(false);
+    }
+  };
+
+  const handleLeaveGame = async () => {
+    if (!currentUser) return;
+
+    try {
+      await userService.delete(currentUser.id);
+    } catch {
+      // Continue with local cleanup
+    } finally {
+      dispatch({ type: 'LEAVE_ROOM' });
+    }
+  };
 
   if (!room || !currentUser) return null;
 
@@ -14,20 +108,6 @@ export default function GameScreen() {
   const deadPlayers = room.players.filter((p) => !p.isAlive);
   const allVoted = alivePlayers.every((p) => p.votedFor !== null);
   const hasVoted = currentUser.votedFor !== null;
-
-  const handleVote = () => {
-    if (!selectedPlayer || !currentUser.isAlive) return;
-    dispatch({ type: 'VOTE', voterId: currentUser.id, targetId: selectedPlayer });
-  };
-
-  const handleNextRound = () => {
-    dispatch({ type: 'NEXT_ROUND' });
-    setSelectedPlayer(null);
-  };
-
-  const handleLeaveGame = () => {
-    dispatch({ type: 'LEAVE_ROOM' });
-  };
 
   if (room.status === 'finished') {
     const impostors = room.players.filter((p) => p.isImpostor);
@@ -38,9 +118,8 @@ export default function GameScreen() {
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
           <div className="text-center">
             <div
-              className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${
-                impostorEliminated ? 'bg-green-500' : 'bg-red-500'
-              }`}
+              className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${impostorEliminated ? 'bg-green-500' : 'bg-red-500'
+                }`}
             >
               <Trophy className="w-10 h-10 text-white" />
             </div>
@@ -87,20 +166,28 @@ export default function GameScreen() {
                 {alivePlayers.length} players remaining
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Your role</p>
-              <div className="flex items-center gap-2 mt-1">
-                {currentUser.isImpostor ? (
-                  <>
-                    <EyeOff className="w-5 h-5 text-red-600" />
-                    <span className="font-bold text-red-600">Impostor</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-5 h-5 text-blue-600" />
-                    <span className="font-bold text-blue-600">Player</span>
-                  </>
-                )}
+            <div className="flex items-center gap-3">
+              <div
+                className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}
+                title={isConnected ? 'Connected' : 'Disconnected'}
+              >
+                {isConnected ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Your role</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {currentUser.isImpostor ? (
+                    <>
+                      <EyeOff className="w-5 h-5 text-red-600" />
+                      <span className="font-bold text-red-600">Impostor</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="w-5 h-5 text-blue-600" />
+                      <span className="font-bold text-blue-600">Player</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -109,9 +196,7 @@ export default function GameScreen() {
             {currentUser.isImpostor ? (
               <div>
                 <AlertCircle className="w-12 h-12 text-white mx-auto mb-3" />
-                <p className="text-white text-lg font-semibold">
-                  You are the Impostor!
-                </p>
+                <p className="text-white text-lg font-semibold">You are the Impostor!</p>
                 <p className="text-blue-100 text-sm mt-2">
                   Blend in and avoid being voted out
                 </p>
@@ -119,13 +204,20 @@ export default function GameScreen() {
             ) : (
               <div>
                 <p className="text-white text-sm mb-2">Your word is:</p>
-                <p className="text-4xl font-bold text-white">{room.currentWord}</p>
-                <p className="text-blue-100 text-sm mt-2">
-                  Find who doesn't know this word
-                </p>
+                <p className="text-3xl md:text-4xl font-bold text-white">{room.currentWord}</p>
+                <p className="text-blue-100 text-sm mt-2">Find who doesn't know this word</p>
               </div>
             )}
           </div>
+
+          {!isConnected && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Reconnecting to server...
+              </p>
+            </div>
+          )}
 
           {currentUser.isAlive ? (
             <div>
@@ -139,26 +231,23 @@ export default function GameScreen() {
                     <button
                       key={player.id}
                       onClick={() => !hasVoted && setSelectedPlayer(player.id)}
-                      disabled={hasVoted}
-                      className={`w-full p-4 rounded-lg border-2 transition text-left ${
-                        hasVoted && currentUser.votedFor === player.id
-                          ? 'bg-red-50 border-red-500'
-                          : selectedPlayer === player.id
+                      disabled={hasVoted || isVoting}
+                      className={`w-full p-4 rounded-lg border-2 transition text-left ${hasVoted && currentUser.votedFor === player.id
+                        ? 'bg-red-50 border-red-500'
+                        : selectedPlayer === player.id
                           ? 'bg-blue-50 border-blue-500'
                           : 'bg-gray-50 border-gray-200 hover:border-blue-300'
-                      } ${hasVoted ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                        } ${hasVoted || isVoting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center font-semibold text-white">
                             {player.username.charAt(0).toUpperCase()}
                           </div>
-                          <span className="font-medium text-gray-800">
-                            {player.username}
-                          </span>
+                          <span className="font-medium text-gray-800">{player.username}</span>
                         </div>
                         {player.votedFor && (
-                          <span className="text-xs text-gray-500">Voted</span>
+                          <span className="text-xs text-green-600 font-medium">✓ Voted</span>
                         )}
                       </div>
                     </button>
@@ -168,33 +257,37 @@ export default function GameScreen() {
               {!hasVoted && (
                 <button
                   onClick={handleVote}
-                  disabled={!selectedPlayer}
-                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${
-                    selectedPlayer
-                      ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                  disabled={!selectedPlayer || isVoting || !isConnected}
+                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md flex items-center justify-center gap-2 ${selectedPlayer && !isVoting && isConnected
+                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
                 >
-                  Confirm Vote
+                  {isVoting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Voting...
+                    </>
+                  ) : (
+                    'Confirm Vote'
+                  )}
                 </button>
               )}
 
-              {allVoted && (
-                <button
-                  onClick={handleNextRound}
-                  className="w-full bg-green-500 hover:bg-green-600 text-white font-semibold py-4 rounded-lg transition shadow-md hover:shadow-lg mt-4"
-                >
-                  See Results
-                </button>
+              {hasVoted && !allVoted && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                  <p className="text-sm text-blue-700 text-center flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Waiting for other players to vote...
+                  </p>
+                </div>
               )}
             </div>
           ) : (
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 text-center">
               <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
               <p className="text-lg font-semibold text-gray-700">You were eliminated</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Waiting for the game to end...
-              </p>
+              <p className="text-sm text-gray-500 mt-2">Waiting for the game to end...</p>
             </div>
           )}
         </div>
@@ -209,6 +302,9 @@ export default function GameScreen() {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-600"
                 >
                   {player.username}
+                  {player.isImpostor && (
+                    <span className="ml-1 text-red-500">(Impostor)</span>
+                  )}
                 </div>
               ))}
             </div>

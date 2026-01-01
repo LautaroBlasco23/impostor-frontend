@@ -1,7 +1,7 @@
-import { useGame } from './context/GameContext';
-import LoginPage from './components/LoginPage';
+import { useGame } from './context/gameContext';
 import RoomLobby from './components/RoomLobby';
 import GameScreen from './components/GameScreen';
+import LoginPage from './components/LoginPage';
 
 function App() {
   const { state } = useGame();
