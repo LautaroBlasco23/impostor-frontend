@@ -1,5 +1,6 @@
 import { apiClient } from './client';
-import type { Game, StartGameRequest, VoteRequest, VoteResult, ApiMessage } from '../types';
+import type { Game, StartGameRequest, VoteRequest, VoteResult } from '../types/game';
+import { ApiMessage } from '../types/api';
 
 const BASE_PATH = '/games';
 

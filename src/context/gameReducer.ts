@@ -1,4 +1,4 @@
-import type { AppGameState, GameAction } from '../types';
+import type { AppGameState, GameAction } from '../types/game';
 
 export const initialState: AppGameState = {
   currentUser: null,

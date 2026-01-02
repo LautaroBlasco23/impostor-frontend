@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGame } from '../context/gameContext';
 import { Eye, EyeOff, Trophy, XCircle, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameEndPayload, GameStartedPayload, UserEliminatedPayload, UserVotedPayload } from '../types';
+import { GameEndPayload, GameStartedPayload, UserEliminatedPayload, UserVotedPayload } from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 import { gameService, userService } from '../services';
 
@@ -14,6 +14,9 @@ export default function GameScreen() {
 
   const handleGameStarted = useCallback(
     (payload: GameStartedPayload) => {
+      console.log('GameStarted payload received:', payload);
+      console.log('Current user at event time:', currentUser);
+
       const isImpostor = currentUser?.id === payload.impostor_id;
       const word = isImpostor ? null : (payload.current_word ?? null);
 
@@ -72,6 +75,13 @@ export default function GameScreen() {
   });
 
   const handleVote = async () => {
+    console.log('Vote state:', {
+      gameId: state.gameId,
+      selectedPlayer,
+      userId: currentUser?.id,
+      isAlive: currentUser?.isAlive,
+      roomCode: room?.code
+    });
     if (!selectedPlayer || !currentUser?.isAlive || !room || !state.gameId) return;
 
     setIsVoting(true);

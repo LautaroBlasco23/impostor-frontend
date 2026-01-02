@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useGame } from '../context';
 import { userService, gameService, roomService, wordService } from '../services';
 import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload, CategorySetPayload } from '../types';
+import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload, CategorySetPayload } from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 
 export default function RoomLobby() {

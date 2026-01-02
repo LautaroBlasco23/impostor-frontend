@@ -2,7 +2,7 @@ import type {
   WebSocketEvent,
   WebSocketEventType,
   WebSocketEventPayload,
-} from '../types';
+} from '../types/webSocket';
 
 type EventHandler<T = WebSocketEventPayload> = (payload: T) => void;
 type ConnectionHandler = () => void;

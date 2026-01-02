@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { wsService } from './wsService';
 import type {
   WebSocketEventType,
-  WebSocketEventPayload,
   UserJoinedPayload,
   UserLeftPayload,
   UserReadyPayload,
@@ -12,7 +11,7 @@ import type {
   UserEliminatedPayload,
   GameEndPayload,
   RoomUpdatePayload,
-} from '../types';
+} from '../types/webSocket';
 
 interface UseWebSocketOptions {
   userId: string;
@@ -37,17 +36,32 @@ interface UseWebSocketReturn {
   disconnect: () => void;
 }
 
-type EventHandlerMap = {
-  user_joined: (payload: UserJoinedPayload) => void;
-  user_left: (payload: UserLeftPayload) => void;
-  user_ready: (payload: UserReadyPayload) => void;
-  category_set: (payload: CategorySetPayload) => void;
-  game_started: (payload: GameStartedPayload) => void;
-  user_voted: (payload: UserVotedPayload) => void;
-  user_eliminated: (payload: UserEliminatedPayload) => void;
-  game_won: (payload: GameEndPayload) => void;
-  game_lost: (payload: GameEndPayload) => void;
-  room_update: (payload: RoomUpdatePayload) => void;
+const EVENT_TYPES = [
+  'user_joined',
+  'user_left',
+  'user_ready',
+  'category_set',
+  'game_started',
+  'user_voted',
+  'user_eliminated',
+  'game_won',
+  'game_lost',
+  'room_update',
+] as const;
+
+type EventType = typeof EVENT_TYPES[number];
+
+const EVENT_TO_HANDLER: Record<EventType, keyof UseWebSocketOptions> = {
+  user_joined: 'onUserJoined',
+  user_left: 'onUserLeft',
+  user_ready: 'onUserReady',
+  category_set: 'onCategorySet',
+  game_started: 'onGameStarted',
+  user_voted: 'onUserVoted',
+  user_eliminated: 'onUserEliminated',
+  game_won: 'onGameWon',
+  game_lost: 'onGameLost',
+  room_update: 'onRoomUpdate',
 };
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
@@ -81,52 +95,23 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   }, []);
 
   useEffect(() => {
-    const eventHandlers: Partial<EventHandlerMap> = {
-      user_joined: options.onUserJoined,
-      user_left: options.onUserLeft,
-      user_ready: options.onUserReady,
-      category_set: options.onCategorySet,
-      game_started: options.onGameStarted,
-      user_voted: options.onUserVoted,
-      user_eliminated: options.onUserEliminated,
-      game_won: options.onGameWon,
-      game_lost: options.onGameLost,
-      room_update: options.onRoomUpdate,
-    };
-
-    const unsubscribers: Array<() => void> = [];
-
-    for (const [eventType, handler] of Object.entries(eventHandlers)) {
-      if (handler) {
-        const unsub = wsService.on<WebSocketEventPayload>(
-          eventType as WebSocketEventType,
-          handler as (payload: WebSocketEventPayload) => void
-        );
-        unsubscribers.push(unsub);
-      }
-    }
+    const unsubscribers = EVENT_TYPES.map((eventType) => {
+      return wsService.on(eventType as WebSocketEventType, (payload: unknown) => {
+        const handlerKey = EVENT_TO_HANDLER[eventType];
+        const handler = optionsRef.current[handlerKey] as ((p: unknown) => void) | undefined;
+        handler?.(payload);
+      });
+    });
 
     return () => {
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [
-    options.onUserJoined,
-    options.onUserLeft,
-    options.onUserReady,
-    options.onCategorySet,
-    options.onGameStarted,
-    options.onUserVoted,
-    options.onUserEliminated,
-    options.onGameWon,
-    options.onGameLost,
-    options.onRoomUpdate,
-  ]);
+  }, []);
 
   useEffect(() => {
     if (options.userId && options.roomId) {
       connect();
     }
-
     return () => {
       disconnect();
     };
