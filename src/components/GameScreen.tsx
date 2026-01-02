@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useGame } from '../context/gameContext';
 import { Eye, EyeOff, Trophy, XCircle, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameEndPayload, UserEliminatedPayload, UserVotedPayload } from '../types';
+import { GameEndPayload, GameStartedPayload, UserEliminatedPayload, UserVotedPayload } from '../types';
 import { useWebSocket } from '../websocket/useWebSocket';
 import { gameService, userService } from '../services';
 
@@ -11,6 +11,21 @@ export default function GameScreen() {
   const currentUser = state.currentUser;
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+
+  const handleGameStarted = useCallback(
+    (payload: GameStartedPayload) => {
+      const isImpostor = currentUser?.id === payload.impostor_id;
+      const word = isImpostor ? null : (payload.current_word ?? null);
+
+      dispatch({
+        type: 'START_GAME',
+        gameId: payload.game_id,
+        impostorId: payload.impostor_id,
+        word,
+      });
+    },
+    [dispatch, currentUser?.id]
+  );
 
   const handleUserVoted = useCallback(
     (payload: UserVotedPayload) => {
@@ -34,19 +49,7 @@ export default function GameScreen() {
     [dispatch]
   );
 
-  const handleGameWon = useCallback(
-    (payload: GameEndPayload) => {
-      dispatch({
-        type: 'END_GAME',
-        winner: payload.winner,
-        word: payload.word,
-        impostorId: payload.impostor_id,
-      });
-    },
-    [dispatch]
-  );
-
-  const handleGameLost = useCallback(
+  const handleGameEnd = useCallback(
     (payload: GameEndPayload) => {
       dispatch({
         type: 'END_GAME',
@@ -61,10 +64,11 @@ export default function GameScreen() {
   const { isConnected } = useWebSocket({
     userId: currentUser?.id ?? '',
     roomId: room?.code ?? '',
+    onGameStarted: handleGameStarted,
     onUserVoted: handleUserVoted,
     onUserEliminated: handleUserEliminated,
-    onGameWon: handleGameWon,
-    onGameLost: handleGameLost,
+    onGameWon: handleGameEnd,
+    onGameLost: handleGameEnd,
   });
 
   const handleVote = async () => {
@@ -118,8 +122,7 @@ export default function GameScreen() {
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
           <div className="text-center">
             <div
-              className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${impostorEliminated ? 'bg-green-500' : 'bg-red-500'
-                }`}
+              className={`inline-flex items-center justify-center w-20 h-20 rounded-full mb-4 ${impostorEliminated ? 'bg-green-500' : 'bg-red-500'}`}
             >
               <Trophy className="w-10 h-10 text-white" />
             </div>
@@ -184,7 +187,7 @@ export default function GameScreen() {
                   ) : (
                     <>
                       <Eye className="w-5 h-5 text-blue-600" />
-                      <span className="font-bold text-blue-600">Player</span>
+                      <span className="font-bold text-blue-600">Detective</span>
                     </>
                   )}
                 </div>
@@ -203,7 +206,7 @@ export default function GameScreen() {
               </div>
             ) : (
               <div>
-                <p className="text-white text-sm mb-2">Your word is:</p>
+                <p className="text-white text-sm mb-2">The word is:</p>
                 <p className="text-3xl md:text-4xl font-bold text-white">{room.currentWord}</p>
                 <p className="text-blue-100 text-sm mt-2">Find who doesn't know this word</p>
               </div>

@@ -13,14 +13,8 @@ export const roomService = {
   getAll: (): Promise<Room[]> =>
     apiClient.get<Room[]>(BASE_PATH),
 
-  setCategory: (
-    roomId: string,
-    userId: string,
-    request: SetCategoryRequest
-  ): Promise<ApiMessage> =>
-    apiClient.put<ApiMessage>(`${BASE_PATH}/${roomId}/category`, request, {
-      headers: { 'X-User-ID': userId },
-    }),
+  setCategory: (roomId: string, request: SetCategoryRequest): Promise<ApiMessage> =>
+    apiClient.put<ApiMessage>(`${BASE_PATH}/${roomId}/category`, request),
 
   delete: (id: string): Promise<void> =>
     apiClient.delete<void>(`${BASE_PATH}/${id}`),

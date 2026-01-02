@@ -19,6 +19,9 @@ export const wordService = {
   getAll: (): Promise<Word[]> =>
     apiClient.get<Word[]>(BASE_PATH),
 
+  getCategories: (): Promise<string[]> =>
+    apiClient.get<string[]>(`${BASE_PATH}/categories`),
+
   delete: (id: number): Promise<void> =>
     apiClient.delete<void>(`${BASE_PATH}/${id}`),
 };

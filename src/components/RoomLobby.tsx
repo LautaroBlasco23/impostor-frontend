@@ -1,14 +1,34 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useGame } from '../context';
-import { userService, gameService } from '../services';
+import { userService, gameService, roomService, wordService } from '../services';
 import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload } from '../types';
+import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload, CategorySetPayload } from '../types';
 import { useWebSocket } from '../websocket/useWebSocket';
 
 export default function RoomLobby() {
   const { state, dispatch } = useGame();
   const room = state.currentRoom;
   const currentUser = state.currentUser;
+  const [categories, setCategories] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await wordService.getCategories();
+        setCategories(cats);
+        if (room?.category) {
+          setSelectedCategory(room.category);
+        }
+      } catch (err) {
+        console.error('Failed to load categories:', err);
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    loadCategories();
+  }, [room?.category]);
 
   const handleUserJoined = useCallback(
     (payload: UserJoinedPayload) => {
@@ -45,14 +65,27 @@ export default function RoomLobby() {
     [dispatch]
   );
 
+  const handleCategorySet = useCallback(
+    (payload: CategorySetPayload) => {
+      setSelectedCategory(payload.category);
+      dispatch({
+        type: 'SET_CATEGORY',
+        category: payload.category,
+      });
+    },
+    [dispatch]
+  );
+
   const handleGameStarted = useCallback(
     (payload: GameStartedPayload) => {
-      const isImpostor = payload.impostor_id === currentUser?.id;
+      const isImpostor = currentUser?.id === payload.impostor_id;
+      const word = isImpostor ? null : (payload.current_word ?? null);
+
       dispatch({
         type: 'START_GAME',
-        word: isImpostor ? null : payload.current_word,
-        impostorId: payload.impostor_id,
         gameId: payload.game_id,
+        impostorId: payload.impostor_id,
+        word,
       });
     },
     [dispatch, currentUser?.id]
@@ -64,6 +97,7 @@ export default function RoomLobby() {
     onUserJoined: handleUserJoined,
     onUserLeft: handleUserLeft,
     onUserReady: handleUserReady,
+    onCategorySet: handleCategorySet,
     onGameStarted: handleGameStarted,
   });
 
@@ -79,6 +113,26 @@ export default function RoomLobby() {
       });
     } catch (err) {
       console.error('Failed to toggle ready:', err);
+    }
+  };
+
+  const handleCategoryChange = async (category: string) => {
+    if (!room || !currentUser) return;
+
+    console.log('Setting category:', {
+      roomId: room.code,
+      category,
+      leader_id: currentUser.id,
+    });
+
+    try {
+      await roomService.setCategory(room.code, {
+        category,
+        leader_id: currentUser.id,
+      });
+      setSelectedCategory(category);
+    } catch (err) {
+      console.error('Failed to set category:', err);
     }
   };
 
@@ -98,7 +152,6 @@ export default function RoomLobby() {
     try {
       await userService.delete(currentUser.id);
     } catch {
-      // Continue with local cleanup
     } finally {
       dispatch({ type: 'LEAVE_ROOM' });
     }
@@ -113,7 +166,7 @@ export default function RoomLobby() {
 
   const allReady = room.players.length >= 2 && room.players.every((p) => p.isReady);
   const isHost = currentUser.id === room.hostId;
-  const canStart = allReady && isHost;
+  const canStart = allReady && isHost && selectedCategory !== '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4">
@@ -163,6 +216,40 @@ export default function RoomLobby() {
               </button>
             </div>
           </div>
+
+          {isHost && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">Category</h2>
+              {isLoadingCategories ? (
+                <div className="flex items-center justify-center p-4">
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                </div>
+              ) : (
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => handleCategoryChange(e.target.value)}
+                  disabled={!isConnected}
+                  className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">Select a category</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {!isHost && selectedCategory && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-gray-600">Category</p>
+              <p className="text-lg font-semibold text-blue-600">
+                {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
+              </p>
+            </div>
+          )}
 
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Players</h2>
@@ -218,6 +305,14 @@ export default function RoomLobby() {
             </div>
           )}
 
+          {!selectedCategory && room.players.length >= 2 && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-yellow-800 text-center">
+                {isHost ? 'Please select a category to continue' : 'Waiting for host to select a category'}
+              </p>
+            </div>
+          )}
+
           {!isConnected && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
@@ -248,7 +343,11 @@ export default function RoomLobby() {
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   }`}
               >
-                {allReady ? 'Start Game' : 'Waiting for all players...'}
+                {!selectedCategory
+                  ? 'Select a category first'
+                  : allReady
+                    ? 'Start Game'
+                    : 'Waiting for all players...'}
               </button>
             )}
           </div>

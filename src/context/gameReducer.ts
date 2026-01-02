@@ -1,12 +1,12 @@
-import type { GameState, GameAction } from './types';
+import type { AppGameState, GameAction } from '../types';
 
-export const initialState: GameState = {
+export const initialState: AppGameState = {
   currentUser: null,
   currentRoom: null,
   gameId: null,
 };
 
-export function gameReducer(state: GameState, action: GameAction): GameState {
+export function gameReducer(state: AppGameState, action: GameAction): AppGameState {
   switch (action.type) {
     case 'SET_USER':
       return { ...state, currentUser: action.user };
@@ -17,11 +17,24 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
     case 'SET_GAME_ID':
       return { ...state, gameId: action.gameId };
 
+    case 'SET_CATEGORY': {
+      if (!state.currentRoom) return state;
+      return {
+        ...state,
+        currentRoom: {
+          ...state.currentRoom,
+          category: action.category,
+        },
+      };
+    }
+
     case 'LEAVE_ROOM':
       return { currentUser: null, currentRoom: null, gameId: null };
 
     case 'ADD_PLAYER': {
       if (!state.currentRoom) return state;
+      const exists = state.currentRoom.players.some(p => p.id === action.player.id);
+      if (exists) return state;
       return {
         ...state,
         currentRoom: {
@@ -44,16 +57,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'UPDATE_PLAYER': {
       if (!state.currentRoom) return state;
-
       const updatedPlayers = state.currentRoom.players.map((p) =>
         p.id === action.playerId ? { ...p, ...action.updates } : p
       );
-
       const updatedCurrentUser =
         state.currentUser?.id === action.playerId
           ? { ...state.currentUser, ...action.updates }
           : state.currentUser;
-
       return {
         ...state,
         currentUser: updatedCurrentUser,
@@ -63,16 +73,13 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'START_GAME': {
       if (!state.currentRoom || !state.currentUser) return state;
-
       const isCurrentUserImpostor = action.impostorId === state.currentUser.id;
-
       const updatedPlayers = state.currentRoom.players.map((p) => ({
         ...p,
         isImpostor: p.id === action.impostorId,
         isAlive: true,
         votedFor: null,
       }));
-
       return {
         ...state,
         gameId: action.gameId,
@@ -94,18 +101,15 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'ELIMINATE_PLAYER': {
       if (!state.currentRoom) return state;
-
       const updatedPlayers = state.currentRoom.players.map((p) =>
         p.id === action.playerId ? { ...p, isAlive: false } : { ...p, votedFor: null }
       );
-
       const updatedCurrentUser =
         state.currentUser?.id === action.playerId
           ? { ...state.currentUser, isAlive: false }
           : state.currentUser
             ? { ...state.currentUser, votedFor: null }
             : null;
-
       return {
         ...state,
         currentUser: updatedCurrentUser,
@@ -119,12 +123,10 @@ export function gameReducer(state: GameState, action: GameAction): GameState {
 
     case 'END_GAME': {
       if (!state.currentRoom) return state;
-
       const updatedPlayers = state.currentRoom.players.map((p) => ({
         ...p,
         isImpostor: p.id === action.impostorId,
       }));
-
       return {
         ...state,
         currentRoom: {
