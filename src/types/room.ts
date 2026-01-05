@@ -1,6 +1,6 @@
 import type { Player } from './user';
 
-export type RoomStatus = 'waiting' | 'playing' | 'finished';
+export type RoomStatus = 'waiting' | 'playing' | 'paused' | 'finished' | 'cancelled';
 
 export interface Room {
   id: string;
