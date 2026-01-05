@@ -164,7 +164,7 @@ export default function RoomLobby() {
 
   if (!room || !currentUser) return null;
 
-  const allReady = room.players.length >= 2 && room.players.every((p) => p.isReady);
+  const allReady = room.players.length >= 3 && room.players.every((p) => p.isReady);
   const isHost = currentUser.id === room.hostId;
   const canStart = allReady && isHost && selectedCategory !== '';
 
@@ -297,15 +297,15 @@ export default function RoomLobby() {
             </div>
           </div>
 
-          {room.players.length < 2 && (
+          {room.players.length < 3 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 text-center">
-                Waiting for at least 2 players to start the game
+                Waiting for at least 3 players to start the game
               </p>
             </div>
           )}
 
-          {!selectedCategory && room.players.length >= 2 && (
+          {!selectedCategory && room.players.length >= 3 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 text-center">
                 {isHost ? 'Please select a category to continue' : 'Waiting for host to select a category'}
@@ -317,7 +317,7 @@ export default function RoomLobby() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Reconnecting to server...
+                Connecting to server...
               </p>
             </div>
           )}

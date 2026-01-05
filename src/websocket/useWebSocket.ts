@@ -65,7 +65,7 @@ const EVENT_TO_HANDLER: Record<EventType, keyof UseWebSocketOptions> = {
 };
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(wsService.isConnected);
+  const [isConnected, setIsConnected] = useState(() => wsService.isConnected);
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -78,6 +78,9 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
   }, []);
 
   useEffect(() => {
+    // Sync state immediately in case we missed the connect event
+    setIsConnected(wsService.isConnected);
+
     const unsubConnect = wsService.onConnect(() => {
       setIsConnected(true);
       optionsRef.current.onConnect?.();
@@ -112,6 +115,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     if (options.userId && options.roomId) {
       connect();
     }
+
     return () => {
       disconnect();
     };

@@ -227,7 +227,7 @@ export default function GameScreen() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Reconnecting to server...
+                Connecting to server...
               </p>
             </div>
           )}
