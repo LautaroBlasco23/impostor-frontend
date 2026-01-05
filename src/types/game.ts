@@ -1,13 +1,13 @@
 import type { Player } from './user';
 import type { RoomState } from './room';
 
-export type GameState = 'waiting' | 'playing' | 'voting' | 'won' | 'lost';
+export type GameState = 'waiting' | 'playing' | 'voting' | 'paused' | 'won' | 'lost' | 'cancelled';
 
 export interface Game {
   id: string;
   room_id: string;
   state: GameState;
-  impostor_id?: string;
+  impostor_id: string;
   current_word?: string;
   category: string;
   vote_count?: Record<string, number>;
@@ -16,10 +16,18 @@ export interface Game {
   created_at: string;
 }
 
+export interface DisconnectedUserInfo {
+  userId: string;
+  nickname: string;
+  timeoutSeconds: number;
+  disconnectAt: Date;
+}
+
 export interface AppGameState {
   currentUser: Player | null;
   currentRoom: RoomState | null;
   gameId: string | null;
+  disconnectedUser: DisconnectedUserInfo | null;
 }
 
 export interface VoteResult {
@@ -39,6 +47,10 @@ export interface VoteRequest {
   target_id: string;
 }
 
+export interface LeaveGameRequest {
+  user_id: string;
+}
+
 export type GameAction =
   | { type: 'SET_USER'; user: Player }
   | { type: 'SET_ROOM'; room: RoomState }
@@ -50,4 +62,8 @@ export type GameAction =
   | { type: 'UPDATE_PLAYER'; playerId: string; updates: Partial<Player> }
   | { type: 'START_GAME'; word: string | null; impostorId: string; gameId: string }
   | { type: 'ELIMINATE_PLAYER'; playerId: string; wasImpostor: boolean }
-  | { type: 'END_GAME'; winner: 'players' | 'impostor'; impostorId: string; word: string };
+  | { type: 'END_GAME'; winner: 'players' | 'impostor'; impostorId: string; word: string }
+  | { type: 'RESTORE_SESSION'; user: Player; room: RoomState }
+  | { type: 'RESTORE_GAME_SESSION'; user: Player; room: RoomState; gameId: string; impostorId: string; word: string | null }
+  | { type: 'SET_DISCONNECTED_USER'; info: DisconnectedUserInfo | null }
+  | { type: 'CANCEL_GAME'; reason: string; word: string; impostorId: string };
