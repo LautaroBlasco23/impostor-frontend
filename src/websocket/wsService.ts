@@ -1,154 +1,161 @@
-import type {
-  WebSocketEvent,
-  WebSocketEventType,
-  WebSocketEventPayload,
-} from '../types/webSocket';
+import type { WebSocketEvent, WebSocketEventType } from '../types/webSocket';
 
-type EventHandler<T = WebSocketEventPayload> = (payload: T) => void;
-type ConnectionHandler = () => void;
+type EventCallback = (payload: unknown) => void;
 
-interface WebSocketConfig {
-  reconnectInterval?: number;
-  maxReconnectAttempts?: number;
-}
-
-const WS_BASE_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:3000';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
 
 class WebSocketService {
-  private socket: WebSocket | null = null;
-  private userId: string | null = null;
-  private roomId: string | null = null;
-  private eventHandlers = new Map<WebSocketEventType, Set<EventHandler>>();
-  private onConnectHandlers = new Set<ConnectionHandler>();
-  private onDisconnectHandlers = new Set<ConnectionHandler>();
+  private ws: WebSocket | null = null;
+  private eventListeners: Map<WebSocketEventType, Set<EventCallback>> = new Map();
+  private connectListeners: Set<() => void> = new Set();
+  private disconnectListeners: Set<() => void> = new Set();
   private reconnectAttempts = 0;
-  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-  private config: Required<WebSocketConfig>;
+  private maxReconnectAttempts = 10;
+  private baseReconnectDelay = 1000;
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private pendingDisconnect: ReturnType<typeof setTimeout> | null = null;
+  private currentUserId: string | null = null;
+  private currentRoomId: string | null = null;
+  private intentionalDisconnect = false;
 
-  constructor(config: WebSocketConfig = {}) {
-    this.config = {
-      reconnectInterval: config.reconnectInterval ?? 3000,
-      maxReconnectAttempts: config.maxReconnectAttempts ?? 5,
-    };
+  get isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
   }
 
   connect(userId: string, roomId: string): void {
-    if (this.socket?.readyState === WebSocket.OPEN) {
-      this.disconnect();
-    }
-
-    this.userId = userId;
-    this.roomId = roomId;
-    this.reconnectAttempts = 0;
-
-    this.establishConnection();
-  }
-
-  private establishConnection(): void {
-    if (!this.userId || !this.roomId) return;
-
-    const url = `${WS_BASE_URL}/ws/${this.userId}?roomId=${this.roomId}`;
-    this.socket = new WebSocket(url);
-
-    this.socket.onopen = () => {
-      this.reconnectAttempts = 0;
-      this.onConnectHandlers.forEach((handler) => handler());
-    };
-
-    this.socket.onmessage = (event: MessageEvent<string>) => {
-      try {
-        const wsEvent = JSON.parse(event.data) as WebSocketEvent<WebSocketEventPayload>;
-        this.dispatchEvent(wsEvent);
-      } catch {
-        console.error('Failed to parse WebSocket message');
-      }
-    };
-
-    this.socket.onclose = () => {
-      this.onDisconnectHandlers.forEach((handler) => handler());
-      this.attemptReconnect();
-    };
-
-    this.socket.onerror = () => {
-      this.socket?.close();
-    };
-  }
-
-  private attemptReconnect(): void {
-    if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
+    if (!userId || !roomId) {
       return;
     }
 
-    this.reconnectAttempts++;
-    this.reconnectTimer = setTimeout(() => {
-      this.establishConnection();
-    }, this.config.reconnectInterval);
-  }
-
-  private dispatchEvent(event: WebSocketEvent<WebSocketEventPayload>): void {
-    const handlers = this.eventHandlers.get(event.type);
-    handlers?.forEach((handler) => handler(event.payload));
-  }
-
-  disconnect(): void {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
+    if (this.pendingDisconnect) {
+      clearTimeout(this.pendingDisconnect);
+      this.pendingDisconnect = null;
     }
 
-    this.reconnectAttempts = this.config.maxReconnectAttempts;
-
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
+    if (
+      this.currentUserId === userId &&
+      this.currentRoomId === roomId &&
+      (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING)
+    ) {
+      return;
     }
 
-    this.userId = null;
-    this.roomId = null;
-  }
-
-  on<T extends WebSocketEventPayload>(
-    eventType: WebSocketEventType,
-    handler: EventHandler<T>
-  ): () => void {
-    if (!this.eventHandlers.has(eventType)) {
-      this.eventHandlers.set(eventType, new Set());
+    if (this.ws && (this.currentUserId !== userId || this.currentRoomId !== roomId)) {
+      this.forceDisconnect();
     }
 
-    const handlers = this.eventHandlers.get(eventType)!;
-    handlers.add(handler as EventHandler);
+    this.currentUserId = userId;
+    this.currentRoomId = roomId;
+    this.intentionalDisconnect = false;
 
-    return () => {
-      handlers.delete(handler as EventHandler);
+    const nickname = localStorage.getItem('nickname') || 'Anonymous';
+    const wsUrl = `${WS_URL}/ws/${userId}?roomId=${roomId}&nickname=${encodeURIComponent(nickname)}`;
+
+    this.ws = new WebSocket(wsUrl);
+
+    this.ws.onopen = () => {
+      this.reconnectAttempts = 0;
+      this.connectListeners.forEach((cb) => cb());
+    };
+
+    this.ws.onclose = () => {
+      this.disconnectListeners.forEach((cb) => cb());
+      this.ws = null;
+
+      if (!this.intentionalDisconnect) {
+        this.scheduleReconnect();
+      }
+    };
+
+    this.ws.onerror = () => {
+      this.ws?.close();
+    };
+
+    this.ws.onmessage = (event) => {
+      try {
+        const data: WebSocketEvent = JSON.parse(event.data);
+        const listeners = this.eventListeners.get(data.type);
+        listeners?.forEach((cb) => cb(data.payload));
+      } catch (err) {
+        console.error('Failed to parse WebSocket message:', err);
+      }
     };
   }
 
-  off(eventType: WebSocketEventType, handler?: EventHandler): void {
-    if (handler) {
-      this.eventHandlers.get(eventType)?.delete(handler);
-    } else {
-      this.eventHandlers.delete(eventType);
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      return;
+    }
+
+    if (!this.currentUserId || !this.currentRoomId) {
+      return;
+    }
+
+    const delay = this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts);
+    this.reconnectTimeout = setTimeout(() => {
+      this.reconnectAttempts++;
+      if (this.currentUserId && this.currentRoomId) {
+        this.connect(this.currentUserId, this.currentRoomId);
+      }
+    }, delay);
+  }
+
+  disconnect(): void {
+    if (this.pendingDisconnect) {
+      return;
+    }
+
+    this.pendingDisconnect = setTimeout(() => {
+      this.forceDisconnect();
+      this.pendingDisconnect = null;
+    }, 100);
+  }
+
+  private forceDisconnect(): void {
+    this.intentionalDisconnect = true;
+
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    this.reconnectAttempts = this.maxReconnectAttempts;
+    this.currentUserId = null;
+    this.currentRoomId = null;
+    this.ws?.close();
+    this.ws = null;
+  }
+
+  send<T>(message: { type: string; payload: T }): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
     }
   }
 
-  onConnect(handler: ConnectionHandler): () => void {
-    this.onConnectHandlers.add(handler);
-    return () => this.onConnectHandlers.delete(handler);
+  on(eventType: WebSocketEventType, callback: EventCallback): () => void {
+    if (!this.eventListeners.has(eventType)) {
+      this.eventListeners.set(eventType, new Set());
+    }
+    this.eventListeners.get(eventType)!.add(callback);
+
+    return () => {
+      this.eventListeners.get(eventType)?.delete(callback);
+    };
   }
 
-  onDisconnect(handler: ConnectionHandler): () => void {
-    this.onDisconnectHandlers.add(handler);
-    return () => this.onDisconnectHandlers.delete(handler);
+  onConnect(callback: () => void): () => void {
+    this.connectListeners.add(callback);
+    return () => {
+      this.connectListeners.delete(callback);
+    };
   }
 
-  get isConnected(): boolean {
-    return this.socket?.readyState === WebSocket.OPEN;
-  }
-
-  get currentRoomId(): string | null {
-    return this.roomId;
+  onDisconnect(callback: () => void): () => void {
+    this.disconnectListeners.add(callback);
+    return () => {
+      this.disconnectListeners.delete(callback);
+    };
   }
 }
 
 export const wsService = new WebSocketService();
-export { WebSocketService };

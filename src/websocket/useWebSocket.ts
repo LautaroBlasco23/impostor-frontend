@@ -11,6 +11,10 @@ import type {
   UserEliminatedPayload,
   GameEndPayload,
   RoomUpdatePayload,
+  UserDisconnectedPayload,
+  UserReconnectedPayload,
+  GameCancelledPayload,
+  ClientMessage,
 } from '../types/webSocket';
 
 interface UseWebSocketOptions {
@@ -18,25 +22,27 @@ interface UseWebSocketOptions {
   roomId: string;
   onConnect?: () => void;
   onDisconnect?: () => void;
-  onUserJoined?: (payload: UserJoinedPayload) => void;
-  onUserLeft?: (payload: UserLeftPayload) => void;
-  onUserReady?: (payload: UserReadyPayload) => void;
-  onCategorySet?: (payload: CategorySetPayload) => void;
-  onGameStarted?: (payload: GameStartedPayload) => void;
-  onUserVoted?: (payload: UserVotedPayload) => void;
-  onUserEliminated?: (payload: UserEliminatedPayload) => void;
-  onGameWon?: (payload: GameEndPayload) => void;
-  onGameLost?: (payload: GameEndPayload) => void;
-  onRoomUpdate?: (payload: RoomUpdatePayload) => void;
+  onUserJoined?: (p: UserJoinedPayload) => void;
+  onUserLeft?: (p: UserLeftPayload) => void;
+  onUserReady?: (p: UserReadyPayload) => void;
+  onCategorySet?: (p: CategorySetPayload) => void;
+  onGameStarted?: (p: GameStartedPayload) => void;
+  onUserVoted?: (p: UserVotedPayload) => void;
+  onUserEliminated?: (p: UserEliminatedPayload) => void;
+  onGameWon?: (p: GameEndPayload) => void;
+  onGameLost?: (p: GameEndPayload) => void;
+  onRoomUpdate?: (p: RoomUpdatePayload) => void;
+  onUserDisconnected?: (p: UserDisconnectedPayload) => void;
+  onUserReconnected?: (p: UserReconnectedPayload) => void;
+  onGameCancelled?: (p: GameCancelledPayload) => void;
 }
 
 interface UseWebSocketReturn {
   isConnected: boolean;
-  connect: () => void;
-  disconnect: () => void;
+  sendMessage: <T>(message: ClientMessage<T>) => void;
 }
 
-const EVENT_TYPES = [
+const EVENT_TYPES: WebSocketEventType[] = [
   'user_joined',
   'user_left',
   'user_ready',
@@ -47,11 +53,12 @@ const EVENT_TYPES = [
   'game_won',
   'game_lost',
   'room_update',
-] as const;
+  'user_disconnected',
+  'user_reconnected',
+  'game_cancelled',
+];
 
-type EventType = typeof EVENT_TYPES[number];
-
-const EVENT_TO_HANDLER: Record<EventType, keyof UseWebSocketOptions> = {
+const EVENT_TO_HANDLER = {
   user_joined: 'onUserJoined',
   user_left: 'onUserLeft',
   user_ready: 'onUserReady',
@@ -62,25 +69,24 @@ const EVENT_TO_HANDLER: Record<EventType, keyof UseWebSocketOptions> = {
   game_won: 'onGameWon',
   game_lost: 'onGameLost',
   room_update: 'onRoomUpdate',
-};
+  user_disconnected: 'onUserDisconnected',
+  user_reconnected: 'onUserReconnected',
+  game_cancelled: 'onGameCancelled',
+} as const;
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(() => wsService.isConnected);
+  const [isConnected, setIsConnected] = useState(wsService.isConnected);
   const optionsRef = useRef(options);
+  const connectionRef = useRef<{ userId: string; roomId: string } | null>(null);
+
   optionsRef.current = options;
 
-  const connect = useCallback(() => {
-    wsService.connect(optionsRef.current.userId, optionsRef.current.roomId);
+  const sendMessage = useCallback(<T,>(message: ClientMessage<T>) => {
+    wsService.send(message);
   }, []);
 
-  const disconnect = useCallback(() => {
-    wsService.disconnect();
-  }, []);
-
+  // Connection state listeners (once)
   useEffect(() => {
-    // Sync state immediately in case we missed the connect event
-    setIsConnected(wsService.isConnected);
-
     const unsubConnect = wsService.onConnect(() => {
       setIsConnected(true);
       optionsRef.current.onConnect?.();
@@ -97,29 +103,40 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     };
   }, []);
 
+  // Event listeners (once)
   useEffect(() => {
-    const unsubscribers = EVENT_TYPES.map((eventType) => {
-      return wsService.on(eventType as WebSocketEventType, (payload: unknown) => {
+    const unsubs = EVENT_TYPES.map((eventType) =>
+      wsService.on(eventType, (payload: unknown) => {
         const handlerKey = EVENT_TO_HANDLER[eventType];
         const handler = optionsRef.current[handlerKey] as ((p: unknown) => void) | undefined;
         handler?.(payload);
-      });
-    });
+      })
+    );
 
-    return () => {
-      unsubscribers.forEach((unsub) => unsub());
-    };
+    return () => unsubs.forEach((u) => u());
   }, []);
 
+  // Connect ONLY when userId/roomId change meaningfully
   useEffect(() => {
-    if (options.userId && options.roomId) {
-      connect();
+    if (!options.userId || !options.roomId) return;
+
+    const prev = connectionRef.current;
+    if (prev?.userId === options.userId && prev?.roomId === options.roomId) {
+      return;
     }
 
-    return () => {
-      disconnect();
+    connectionRef.current = {
+      userId: options.userId,
+      roomId: options.roomId,
     };
-  }, [options.userId, options.roomId, connect, disconnect]);
 
-  return { isConnected, connect, disconnect };
+    wsService.connect(options.userId, options.roomId);
+
+    return () => {
+      wsService.disconnect();
+      connectionRef.current = null;
+    };
+  }, [options.userId, options.roomId]);
+
+  return { isConnected, sendMessage };
 }
