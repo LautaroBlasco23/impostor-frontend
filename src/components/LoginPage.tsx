@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGame } from '../context';
 import { userService, roomService } from '../services';
-import { UserCircle2, Plus, LogIn, Loader2, Languages } from 'lucide-react';
+import { UserCircle2, Plus, LogIn, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const { t, i18n } = useTranslation();
