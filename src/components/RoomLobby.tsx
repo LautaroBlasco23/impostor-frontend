@@ -91,15 +91,25 @@ export default function RoomLobby() {
     [dispatch, currentUser?.id]
   );
 
-  const { isConnected } = useWebSocket({
-    userId: currentUser?.id ?? '',
-    roomId: room?.code ?? '',
-    onUserJoined: handleUserJoined,
-    onUserLeft: handleUserLeft,
-    onUserReady: handleUserReady,
-    onCategorySet: handleCategorySet,
-    onGameStarted: handleGameStarted,
-  });
+  const userId = currentUser?.id;
+  const roomId = room?.code;
+
+  const { isConnected } = useWebSocket(
+    userId && roomId
+      ? {
+        userId,
+        roomId,
+        onUserJoined: handleUserJoined,
+        onUserLeft: handleUserLeft,
+        onUserReady: handleUserReady,
+        onCategorySet: handleCategorySet,
+        onGameStarted: handleGameStarted,
+      }
+      : {
+        userId: '',
+        roomId: '',
+      }
+  );
 
   const handleToggleReady = async () => {
     if (!currentUser) return;
