@@ -1,9 +1,11 @@
 import type { AppGameState, GameAction } from '../types/game';
+import { sessionPersistence } from '../utils/sessionPersistence';
 
 export const initialState: AppGameState = {
   currentUser: null,
   currentRoom: null,
   gameId: null,
+  disconnectedUser: null,
 };
 
 export function gameReducer(state: AppGameState, action: GameAction): AppGameState {
@@ -29,11 +31,41 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
     }
 
     case 'LEAVE_ROOM':
-      return { currentUser: null, currentRoom: null, gameId: null };
+      sessionPersistence.clear();
+      return { currentUser: null, currentRoom: null, gameId: null, disconnectedUser: null };
+
+    case 'RESTORE_SESSION':
+      return {
+        ...state,
+        currentUser: action.user,
+        currentRoom: action.room,
+        gameId: null,
+      };
+
+    case 'RESTORE_GAME_SESSION': {
+      const updatedPlayers = action.room.players.map((p) => ({
+        ...p,
+        isImpostor: p.id === action.impostorId,
+      }));
+      return {
+        ...state,
+        currentUser: {
+          ...action.user,
+          isImpostor: action.user.id === action.impostorId,
+        },
+        currentRoom: {
+          ...action.room,
+          status: 'playing',
+          currentWord: action.word,
+          players: updatedPlayers,
+        },
+        gameId: action.gameId,
+      };
+    }
 
     case 'ADD_PLAYER': {
       if (!state.currentRoom) return state;
-      const exists = state.currentRoom.players.some(p => p.id === action.player.id);
+      const exists = state.currentRoom.players.some((p) => p.id === action.player.id);
       if (exists) return state;
       return {
         ...state,
@@ -83,6 +115,7 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
       return {
         ...state,
         gameId: action.gameId,
+        disconnectedUser: null,
         currentUser: {
           ...state.currentUser,
           isImpostor: isCurrentUserImpostor,
@@ -129,9 +162,40 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
       }));
       return {
         ...state,
+        disconnectedUser: null,
         currentRoom: {
           ...state.currentRoom,
           status: 'finished',
+          currentWord: action.word,
+          players: updatedPlayers,
+        },
+      };
+    }
+
+    case 'SET_DISCONNECTED_USER': {
+      if (!state.currentRoom) return state;
+      return {
+        ...state,
+        disconnectedUser: action.info,
+        currentRoom: {
+          ...state.currentRoom,
+          status: action.info ? 'paused' : state.currentRoom.status,
+        },
+      };
+    }
+
+    case 'CANCEL_GAME': {
+      if (!state.currentRoom) return state;
+      const updatedPlayers = state.currentRoom.players.map((p) => ({
+        ...p,
+        isImpostor: p.id === action.impostorId,
+      }));
+      return {
+        ...state,
+        disconnectedUser: null,
+        currentRoom: {
+          ...state.currentRoom,
+          status: 'cancelled',
           currentWord: action.word,
           players: updatedPlayers,
         },
