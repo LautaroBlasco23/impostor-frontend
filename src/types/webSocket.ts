@@ -8,7 +8,10 @@ export type WebSocketEventType =
   | 'user_eliminated'
   | 'game_won'
   | 'game_lost'
-  | 'room_update';
+  | 'room_update'
+  | 'user_disconnected'
+  | 'user_reconnected'
+  | 'game_cancelled';
 
 export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
@@ -44,6 +47,9 @@ export interface GameStartedPayload {
   round_number: number;
   impostor_id: string;
   current_word?: string;
+  state?: string;
+  vote_count?: Record<string, number>;
+  voted_users?: Record<string, string>;
 }
 
 export interface UserVotedPayload {
@@ -63,12 +69,35 @@ export interface GameEndPayload {
 }
 
 export interface RoomUpdatePayload {
-  users: Array<{
+  round_number?: number;
+  message?: string;
+  users?: Array<{
     id: string;
     nickname: string;
     is_ready: boolean;
     is_alive: boolean;
   }>;
+}
+
+export interface UserDisconnectedPayload {
+  user_id: string;
+  nickname: string;
+  timeout_seconds: number;
+  disconnect_at: string;
+  previous_state: string;
+}
+
+export interface UserReconnectedPayload {
+  user_id: string;
+  nickname: string;
+  game_state: string;
+}
+
+export interface GameCancelledPayload {
+  game_id: string;
+  reason: string;
+  impostor_id: string;
+  word: string;
 }
 
 export type WebSocketEventPayload =
@@ -80,4 +109,18 @@ export type WebSocketEventPayload =
   | UserVotedPayload
   | UserEliminatedPayload
   | GameEndPayload
-  | RoomUpdatePayload;
+  | RoomUpdatePayload
+  | UserDisconnectedPayload
+  | UserReconnectedPayload
+  | GameCancelledPayload;
+
+export type ClientMessageType = 'reconnect';
+
+export interface ClientMessage<T = unknown> {
+  type: ClientMessageType;
+  payload: T;
+}
+
+export interface ReconnectPayload {
+  game_id: string;
+}
