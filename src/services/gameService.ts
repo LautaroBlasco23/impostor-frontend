@@ -1,6 +1,5 @@
+import type { Game, StartGameRequest, VoteRequest, VoteResult, LeaveGameRequest } from '../types/game';
 import { apiClient } from './client';
-import type { Game, StartGameRequest, VoteRequest, VoteResult } from '../types/game';
-import { ApiMessage } from '../types/api';
 
 const BASE_PATH = '/games';
 
@@ -11,12 +10,15 @@ export const gameService = {
   get: (id: string): Promise<Game> =>
     apiClient.get<Game>(`${BASE_PATH}/${id}`),
 
-  getByRoom: (roomId: string): Promise<Game> =>
-    apiClient.get<Game>(`${BASE_PATH}/room/${roomId}`),
+  getByRoom: (roomId: string): Promise<Game | null> =>
+    apiClient.get<Game>(`${BASE_PATH}/room/${roomId}`).catch(() => null),
 
   vote: (request: VoteRequest): Promise<VoteResult> =>
     apiClient.post<VoteResult>(`${BASE_PATH}/vote`, request),
 
-  end: (id: string): Promise<ApiMessage> =>
-    apiClient.post<ApiMessage>(`${BASE_PATH}/${id}/end`),
+  end: (id: string): Promise<void> =>
+    apiClient.post<void>(`${BASE_PATH}/${id}/end`),
+
+  leave: (gameId: string, request: LeaveGameRequest): Promise<void> =>
+    apiClient.post<void>(`${BASE_PATH}/${gameId}/leave`, request),
 };
