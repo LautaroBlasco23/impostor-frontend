@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGame } from '../context/gameContext';
 import { Eye, EyeOff, Trophy, XCircle, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
 import {
@@ -11,6 +12,7 @@ import { useWebSocket } from '../websocket/useWebSocket';
 import { gameService, userService } from '../services';
 
 export default function GameScreen() {
+  const { t } = useTranslation();
   const { state, dispatch } = useGame();
   const room = state.currentRoom;
   const currentUser = state.currentUser;
@@ -19,9 +21,6 @@ export default function GameScreen() {
 
   const handleGameStarted = useCallback(
     (payload: GameStartedPayload) => {
-      console.log('GameStarted payload received:', payload);
-      console.log('Current user at event time:', currentUser?.id);
-
       const isImpostor = currentUser?.id === payload.impostor_id;
       const word = isImpostor ? null : (payload.current_word ?? null);
 
@@ -80,13 +79,6 @@ export default function GameScreen() {
   });
 
   const handleVote = async () => {
-    console.log('Vote state:', {
-      gameId: state.gameId,
-      selectedPlayer,
-      userId: currentUser?.id,
-      isAlive: currentUser?.isAlive,
-      roomCode: room?.code,
-    });
     if (!selectedPlayer || !currentUser?.isAlive || !room || !state.gameId) return;
 
     setIsVoting(true);
@@ -111,11 +103,9 @@ export default function GameScreen() {
 
   const handleLeaveGame = async () => {
     if (!currentUser) return;
-
     try {
       await userService.delete(currentUser.id);
     } catch {
-      // Continue with local cleanup
     } finally {
       dispatch({ type: 'LEAVE_ROOM' });
     }
@@ -141,16 +131,16 @@ export default function GameScreen() {
             >
               <Trophy className="w-10 h-10 text-white" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">Game Over!</h1>
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">{t('game.gameOver')}</h1>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
               <p className="text-lg font-semibold text-gray-800 mb-2">
-                {impostorEliminated ? 'Players Win!' : 'Impostor Wins!'}
+                {impostorEliminated ? t('game.playersWin') : t('game.impostorWins')}
               </p>
-              <p className="text-gray-600 mb-4">The word was:</p>
+              <p className="text-gray-600 mb-4">{t('game.theWordWas')}</p>
               <p className="text-3xl font-bold text-blue-600">{room.currentWord}</p>
             </div>
             <div className="mb-6">
-              <p className="text-sm text-gray-600 mb-3">The impostor was:</p>
+              <p className="text-sm text-gray-600 mb-3">{t('game.impostorWas')}</p>
               {impostors.map((imp) => (
                 <div
                   key={imp.id}
@@ -165,7 +155,7 @@ export default function GameScreen() {
               onClick={handleLeaveGame}
               className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition shadow-md hover:shadow-lg"
             >
-              Back to Home
+              {t('game.backToHome')}
             </button>
           </div>
         </div>
@@ -179,28 +169,27 @@ export default function GameScreen() {
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 mb-4">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Round {room.round}</h1>
-              <p className="text-sm text-gray-600">{alivePlayers.length} players remaining</p>
+              <h1 className="text-2xl font-bold text-gray-800">{t('game.round', { round: room.round })}</h1>
+              <p className="text-sm text-gray-600">{t('game.remaining', { count: alivePlayers.length })}</p>
             </div>
             <div className="flex items-center gap-3">
               <div
                 className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}
-                title={isConnected ? 'Connected' : 'Disconnected'}
               >
                 {isConnected ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
               </div>
               <div className="text-right">
-                <p className="text-sm text-gray-600">Your role</p>
+                <p className="text-sm text-gray-600">{t('game.yourRole')}</p>
                 <div className="flex items-center gap-2 mt-1">
                   {currentUser.isImpostor ? (
                     <>
                       <EyeOff className="w-5 h-5 text-red-600" />
-                      <span className="font-bold text-red-600">Impostor</span>
+                      <span className="font-bold text-red-600">{t('game.impostor')}</span>
                     </>
                   ) : (
                     <>
                       <Eye className="w-5 h-5 text-blue-600" />
-                      <span className="font-bold text-blue-600">Detective</span>
+                      <span className="font-bold text-blue-600">{t('game.detective')}</span>
                     </>
                   )}
                 </div>
@@ -212,14 +201,14 @@ export default function GameScreen() {
             {currentUser.isImpostor ? (
               <div>
                 <AlertCircle className="w-12 h-12 text-white mx-auto mb-3" />
-                <p className="text-white text-lg font-semibold">You are the Impostor!</p>
-                <p className="text-blue-100 text-sm mt-2">Blend in and avoid being voted out</p>
+                <p className="text-white text-lg font-semibold">{t('game.impostorAlert')}</p>
+                <p className="text-blue-100 text-sm mt-2">{t('game.impostorSub')}</p>
               </div>
             ) : (
               <div>
-                <p className="text-white text-sm mb-2">The word is:</p>
+                <p className="text-white text-sm mb-2">{t('game.wordIs')}</p>
                 <p className="text-3xl md:text-4xl font-bold text-white">{room.currentWord}</p>
-                <p className="text-blue-100 text-sm mt-2">Find who doesn't know this word</p>
+                <p className="text-blue-100 text-sm mt-2">{t('game.detectiveSub')}</p>
               </div>
             )}
           </div>
@@ -228,7 +217,7 @@ export default function GameScreen() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Connecting to server...
+                {t('game.connecting')}
               </p>
             </div>
           )}
@@ -236,7 +225,7 @@ export default function GameScreen() {
           {currentUser.isAlive ? (
             <div>
               <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                {hasVoted ? 'Waiting for others to vote...' : 'Vote to Eliminate'}
+                {hasVoted ? t('game.waitingOthers') : t('game.voteToEliminate')}
               </h2>
               <div className="space-y-2 mb-4">
                 {alivePlayers
@@ -261,7 +250,7 @@ export default function GameScreen() {
                           <span className="font-medium text-gray-800">{player.username}</span>
                         </div>
                         {player.votedFor && (
-                          <span className="text-xs text-green-600 font-medium">✓ Voted</span>
+                          <span className="text-xs text-green-600 font-medium">✓ {t('game.voted')}</span>
                         )}
                       </div>
                     </button>
@@ -280,10 +269,10 @@ export default function GameScreen() {
                   {isVoting ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      Voting...
+                      {t('game.voting')}
                     </>
                   ) : (
-                    'Confirm Vote'
+                    t('game.confirmVote')
                   )}
                 </button>
               )}
@@ -292,7 +281,7 @@ export default function GameScreen() {
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                   <p className="text-sm text-blue-700 text-center flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Waiting for other players to vote...
+                    {t('game.waitingOthers')}
                   </p>
                 </div>
               )}
@@ -300,15 +289,15 @@ export default function GameScreen() {
           ) : (
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 text-center">
               <XCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-lg font-semibold text-gray-700">You were eliminated</p>
-              <p className="text-sm text-gray-500 mt-2">Waiting for the game to end...</p>
+              <p className="text-lg font-semibold text-gray-700">{t('game.eliminated')}</p>
+              <p className="text-sm text-gray-500 mt-2">{t('game.waitingEnd')}</p>
             </div>
           )}
         </div>
 
         {deadPlayers.length > 0 && (
           <div className="bg-white rounded-xl shadow-md p-4">
-            <p className="text-sm font-medium text-gray-600 mb-2">Eliminated Players</p>
+            <p className="text-sm font-medium text-gray-600 mb-2">{t('game.eliminatedPlayers')}</p>
             <div className="flex flex-wrap gap-2">
               {deadPlayers.map((player) => (
                 <div
@@ -316,7 +305,7 @@ export default function GameScreen() {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-600"
                 >
                   {player.username}
-                  {player.isImpostor && <span className="ml-1 text-red-500">(Impostor)</span>}
+                  {player.isImpostor && <span className="ml-1 text-red-500">({t('game.impostor')})</span>}
                 </div>
               ))}
             </div>

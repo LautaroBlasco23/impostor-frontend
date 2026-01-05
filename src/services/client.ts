@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { ApiError } from '../types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
@@ -30,6 +31,7 @@ async function request<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Accept-Language': i18n.language || 'en',
     ...config?.headers,
   };
 

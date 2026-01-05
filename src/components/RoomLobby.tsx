@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGame } from '../context';
 import { userService, gameService, roomService, wordService } from '../services';
 import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
@@ -12,6 +13,7 @@ import {
 import { useWebSocket } from '../websocket/useWebSocket';
 
 export default function RoomLobby() {
+  const { t } = useTranslation();
   const { state, dispatch } = useGame();
   const room = state.currentRoom;
   const currentUser = state.currentUser;
@@ -103,18 +105,18 @@ export default function RoomLobby() {
   const { isConnected } = useWebSocket(
     userId && roomId
       ? {
-          userId,
-          roomId,
-          onUserJoined: handleUserJoined,
-          onUserLeft: handleUserLeft,
-          onUserReady: handleUserReady,
-          onCategorySet: handleCategorySet,
-          onGameStarted: handleGameStarted,
-        }
+        userId,
+        roomId,
+        onUserJoined: handleUserJoined,
+        onUserLeft: handleUserLeft,
+        onUserReady: handleUserReady,
+        onCategorySet: handleCategorySet,
+        onGameStarted: handleGameStarted,
+      }
       : {
-          userId: '',
-          roomId: '',
-        },
+        userId: '',
+        roomId: '',
+      },
   );
 
   const handleToggleReady = async () => {
@@ -134,12 +136,6 @@ export default function RoomLobby() {
 
   const handleCategoryChange = async (category: string) => {
     if (!room || !currentUser) return;
-
-    console.log('Setting category:', {
-      roomId: room.code,
-      category,
-      leader_id: currentUser.id,
-    });
 
     try {
       await roomService.setCategory(room.code, {
@@ -195,16 +191,16 @@ export default function RoomLobby() {
                 <Users className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Game Lobby</h1>
+                <h1 className="text-2xl font-bold text-gray-800">{t('lobby.title')}</h1>
                 <p className="text-sm text-gray-600">
-                  {room.players.length} player{room.players.length !== 1 ? 's' : ''}
+                  {t('lobby.players', { count: room.players.length })}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <div
                 className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}
-                title={isConnected ? 'Connected' : 'Disconnected'}
+                title={isConnected ? t('lobby.connected') : t('lobby.disconnected')}
               >
                 {isConnected ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
               </div>
@@ -220,7 +216,7 @@ export default function RoomLobby() {
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Room Code</p>
+                <p className="text-sm text-gray-600 mb-1">{t('lobby.roomCode')}</p>
                 <p className="text-2xl md:text-3xl font-bold text-blue-600 tracking-wider break-all">
                   {room.code}
                 </p>
@@ -236,7 +232,7 @@ export default function RoomLobby() {
 
           {isHost && (
             <div className="mb-6">
-              <h2 className="text-lg font-semibold text-gray-800 mb-3">Category</h2>
+              <h2 className="text-lg font-semibold text-gray-800 mb-3">{t('lobby.category')}</h2>
               {isLoadingCategories ? (
                 <div className="flex items-center justify-center p-4">
                   <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
@@ -248,7 +244,7 @@ export default function RoomLobby() {
                   disabled={!isConnected}
                   className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select a category</option>
+                  <option value="">{t('lobby.selectCategory')}</option>
                   {categories.map((cat) => (
                     <option key={cat} value={cat}>
                       {cat.charAt(0).toUpperCase() + cat.slice(1)}
@@ -261,7 +257,7 @@ export default function RoomLobby() {
 
           {!isHost && selectedCategory && (
             <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-sm text-gray-600">Category</p>
+              <p className="text-sm text-gray-600">{t('lobby.category')}</p>
               <p className="text-lg font-semibold text-blue-600">
                 {selectedCategory.charAt(0).toUpperCase() + selectedCategory.slice(1)}
               </p>
@@ -269,20 +265,18 @@ export default function RoomLobby() {
           )}
 
           <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Players</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('lobby.players_title')}</h2>
             <div className="space-y-2">
               {room.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
-                    player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                  }`}
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
-                        player.isReady ? 'bg-green-500' : 'bg-gray-400'
-                      }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${player.isReady ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
                     >
                       {player.username.charAt(0).toUpperCase()}
                     </div>
@@ -290,7 +284,7 @@ export default function RoomLobby() {
                       <span className="font-medium text-gray-800">{player.username}</span>
                       {player.id === room.hostId && <Crown className="w-4 h-4 text-yellow-500" />}
                       {player.id === currentUser.id && (
-                        <span className="text-xs text-gray-500">(you)</span>
+                        <span className="text-xs text-gray-500">{t('lobby.you')}</span>
                       )}
                     </div>
                   </div>
@@ -298,12 +292,12 @@ export default function RoomLobby() {
                     {player.isReady ? (
                       <span className="flex items-center gap-1 text-green-600 font-medium">
                         <Check className="w-5 h-5" />
-                        <span className="hidden sm:inline">Ready</span>
+                        <span className="hidden sm:inline">{t('lobby.ready')}</span>
                       </span>
                     ) : (
                       <span className="flex items-center gap-1 text-gray-500">
                         <X className="w-5 h-5" />
-                        <span className="hidden sm:inline">Not Ready</span>
+                        <span className="hidden sm:inline">{t('lobby.notReady')}</span>
                       </span>
                     )}
                   </div>
@@ -315,7 +309,7 @@ export default function RoomLobby() {
           {room.players.length < 3 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 text-center">
-                Waiting for at least 3 players to start the game
+                {t('lobby.minPlayers')}
               </p>
             </div>
           )}
@@ -323,9 +317,7 @@ export default function RoomLobby() {
           {!selectedCategory && room.players.length >= 3 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 text-center">
-                {isHost
-                  ? 'Please select a category to continue'
-                  : 'Waiting for host to select a category'}
+                {isHost ? t('lobby.hostSelectCategory') : t('lobby.waitingHostCategory')}
               </p>
             </div>
           )}
@@ -334,7 +326,7 @@ export default function RoomLobby() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-red-700 text-center flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Connecting to server...
+                {t('lobby.connecting')}
               </p>
             </div>
           )}
@@ -343,30 +335,28 @@ export default function RoomLobby() {
             <button
               onClick={handleToggleReady}
               disabled={!isConnected}
-              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
-                currentUser.isReady
-                  ? 'bg-gray-400 hover:bg-gray-500 text-white'
-                  : 'bg-green-500 hover:bg-green-600 text-white'
-              }`}
+              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${currentUser.isReady
+                ? 'bg-gray-400 hover:bg-gray-500 text-white'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
             >
-              {currentUser.isReady ? 'Cancel Ready' : "I'm Ready"}
+              {currentUser.isReady ? t('lobby.cancelReady') : t('lobby.imReady')}
             </button>
 
             {isHost && (
               <button
                 onClick={handleStartGame}
                 disabled={!canStart || !isConnected}
-                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${
-                  canStart && isConnected
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${canStart && isConnected
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 {!selectedCategory
-                  ? 'Select a category first'
+                  ? t('lobby.selectCategoryFirst')
                   : allReady
-                    ? 'Start Game'
-                    : 'Waiting for all players...'}
+                    ? t('lobby.startGame')
+                    : t('lobby.waitingPlayers')}
               </button>
             )}
           </div>

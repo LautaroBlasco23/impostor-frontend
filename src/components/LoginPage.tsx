@@ -1,19 +1,26 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useGame } from '../context';
 import { userService, roomService } from '../services';
-import { UserCircle2, Plus, LogIn, Loader2 } from 'lucide-react';
+import { UserCircle2, Plus, LogIn, Loader2, Languages } from 'lucide-react';
 
 export default function LoginPage() {
+  const { t, i18n } = useTranslation();
   const { state, dispatch } = useGame();
   const [username, setUsername] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const toggleLanguage = () => {
+    const newLang = i18n.language.startsWith('en') ? 'es' : 'en';
+    i18n.changeLanguage(newLang);
+  };
+
   const handleSetUsername = async () => {
     const trimmed = username.trim();
     if (!trimmed) {
-      setError('Please enter a username');
+      setError(t('login.errorUsername'));
       return;
     }
 
@@ -34,7 +41,7 @@ export default function LoginPage() {
         },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create user');
+      setError(err instanceof Error ? err.message : t('login.errorDefault'));
     } finally {
       setIsLoading(false);
     }
@@ -42,7 +49,7 @@ export default function LoginPage() {
 
   const handleCreateRoom = async () => {
     if (!state.currentUser) {
-      setError('Please set your username first');
+      setError(t('login.errorUserFirst'));
       return;
     }
 
@@ -70,7 +77,7 @@ export default function LoginPage() {
         },
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create room');
+      setError(err instanceof Error ? err.message : t('login.errorDefault'));
     } finally {
       setIsLoading(false);
     }
@@ -78,13 +85,13 @@ export default function LoginPage() {
 
   const handleJoinRoom = async () => {
     if (!state.currentUser) {
-      setError('Please set your username first');
+      setError(t('login.errorUserFirst'));
       return;
     }
 
     const code = roomCode.trim();
     if (!code) {
-      setError('Please enter a room code');
+      setError(t('login.errorRoomCode'));
       return;
     }
 
@@ -95,7 +102,7 @@ export default function LoginPage() {
       const room = await roomService.get(code);
 
       if (!room.is_active) {
-        setError('This room is no longer active');
+        setError(t('login.errorRoomInactive'));
         setIsLoading(false);
         return;
       }
@@ -122,8 +129,8 @@ export default function LoginPage() {
         },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to join room';
-      setError(message.includes('not found') ? 'Room not found' : message);
+      const message = err instanceof Error ? err.message : t('login.errorDefault');
+      setError(message.includes('not found') ? t('login.errorRoomNotFound') : message);
     } finally {
       setIsLoading(false);
     }
@@ -137,27 +144,35 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md relative">
+        <button
+          onClick={toggleLanguage}
+          className="absolute top-6 right-6 p-2 rounded-full hover:bg-gray-100 transition text-xl shadow-sm border border-gray-100"
+          title={i18n.language.startsWith('en') ? 'Switch to Spanish' : 'Cambiar a Inglés'}
+        >
+          {i18n.language.startsWith('en') ? '🇬🇧' : '🇪🇸'}
+        </button>
+
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-full mb-4">
             <UserCircle2 className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Word Detective</h1>
-          <p className="text-gray-600">Find the impostor among you</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">{t('login.title')}</h1>
+          <p className="text-gray-600">{t('login.subtitle')}</p>
         </div>
 
         {!state.currentUser ? (
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Enter Your Username
+                {t('login.usernameLabel')}
               </label>
               <input
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 onKeyDown={(e) => handleKeyDown(e, handleSetUsername)}
-                placeholder="Your name"
+                placeholder={t('login.usernamePlaceholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                 maxLength={20}
                 disabled={isLoading}
@@ -171,17 +186,17 @@ export default function LoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  Creating...
+                  {t('login.creating')}
                 </>
               ) : (
-                'Continue'
+                t('login.continue')
               )}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-gray-600">Welcome,</p>
+              <p className="text-sm text-gray-600">{t('login.welcome')}</p>
               <p className="text-xl font-bold text-gray-800">{state.currentUser.username}</p>
             </div>
 
@@ -196,7 +211,7 @@ export default function LoginPage() {
                 ) : (
                   <Plus className="w-5 h-5" />
                 )}
-                Create New Room
+                {t('login.createRoom')}
               </button>
 
               <div className="relative">
@@ -204,18 +219,18 @@ export default function LoginPage() {
                   <div className="w-full border-t border-gray-300" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">or</span>
+                  <span className="px-2 bg-white text-gray-500">{t('login.or')}</span>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Room Code</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{t('login.roomCodeLabel')}</label>
                 <input
                   type="text"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, handleJoinRoom)}
-                  placeholder="Enter room code"
+                  placeholder={t('login.roomCodePlaceholder')}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                   maxLength={36}
                   disabled={isLoading}
@@ -232,7 +247,7 @@ export default function LoginPage() {
                 ) : (
                   <LogIn className="w-5 h-5" />
                 )}
-                Join Room
+                {t('login.joinRoom')}
               </button>
             </div>
           </div>
