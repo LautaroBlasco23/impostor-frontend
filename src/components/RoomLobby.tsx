@@ -103,18 +103,18 @@ export default function RoomLobby() {
   const { isConnected } = useWebSocket(
     userId && roomId
       ? {
-          userId,
-          roomId,
-          onUserJoined: handleUserJoined,
-          onUserLeft: handleUserLeft,
-          onUserReady: handleUserReady,
-          onCategorySet: handleCategorySet,
-          onGameStarted: handleGameStarted,
-        }
+        userId,
+        roomId,
+        onUserJoined: handleUserJoined,
+        onUserLeft: handleUserLeft,
+        onUserReady: handleUserReady,
+        onCategorySet: handleCategorySet,
+        onGameStarted: handleGameStarted,
+      }
       : {
-          userId: '',
-          roomId: '',
-        },
+        userId: '',
+        roomId: '',
+      },
   );
 
   const handleToggleReady = async () => {
@@ -167,7 +167,8 @@ export default function RoomLobby() {
 
     try {
       await userService.delete(currentUser.id);
-    } catch {
+    } catch (err) {
+      console.error("error deleting user: ", err)
     } finally {
       dispatch({ type: 'LEAVE_ROOM' });
     }
@@ -273,15 +274,13 @@ export default function RoomLobby() {
               {room.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
-                    player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                  }`}
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
-                        player.isReady ? 'bg-green-500' : 'bg-gray-400'
-                      }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${player.isReady ? 'bg-green-500' : 'bg-gray-400'
+                        }`}
                     >
                       {player.username.charAt(0).toUpperCase()}
                     </div>
@@ -342,11 +341,10 @@ export default function RoomLobby() {
             <button
               onClick={handleToggleReady}
               disabled={!isConnected}
-              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
-                currentUser.isReady
-                  ? 'bg-gray-400 hover:bg-gray-500 text-white'
-                  : 'bg-green-500 hover:bg-green-600 text-white'
-              }`}
+              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${currentUser.isReady
+                ? 'bg-gray-400 hover:bg-gray-500 text-white'
+                : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
             >
               {currentUser.isReady ? 'Cancel Ready' : "I'm Ready"}
             </button>
@@ -355,11 +353,10 @@ export default function RoomLobby() {
               <button
                 onClick={handleStartGame}
                 disabled={!canStart || !isConnected}
-                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${
-                  canStart && isConnected
-                    ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${canStart && isConnected
+                  ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
               >
                 {!selectedCategory
                   ? 'Select a category first'
