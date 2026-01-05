@@ -64,6 +64,13 @@ export type GameAction =
   | { type: 'ELIMINATE_PLAYER'; playerId: string; wasImpostor: boolean }
   | { type: 'END_GAME'; winner: 'players' | 'impostor'; impostorId: string; word: string }
   | { type: 'RESTORE_SESSION'; user: Player; room: RoomState }
-  | { type: 'RESTORE_GAME_SESSION'; user: Player; room: RoomState; gameId: string; impostorId: string; word: string | null }
+  | {
+      type: 'RESTORE_GAME_SESSION';
+      user: Player;
+      room: RoomState;
+      gameId: string;
+      impostorId: string;
+      word: string | null;
+    }
   | { type: 'SET_DISCONNECTED_USER'; info: DisconnectedUserInfo | null }
   | { type: 'CANCEL_GAME'; reason: string; word: string; impostorId: string };

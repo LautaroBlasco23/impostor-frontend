@@ -36,11 +36,7 @@ function gameStateToRoomStatus(gameState: Game['state'] | null): RoomStatus {
   }
 }
 
-function mapToRoomState(
-  room: Room,
-  players: Player[],
-  game: Game | null
-): RoomState {
+function mapToRoomState(room: Room, players: Player[], game: Game | null): RoomState {
   return {
     code: room.id,
     hostId: room.leader_id,

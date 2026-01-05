@@ -209,9 +209,7 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Room Code
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Room Code</label>
                 <input
                   type="text"
                   value={roomCode}

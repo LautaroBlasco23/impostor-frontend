@@ -81,7 +81,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
 
   optionsRef.current = options;
 
-  const sendMessage = useCallback(<T,>(message: ClientMessage<T>) => {
+  const sendMessage = useCallback(<T>(message: ClientMessage<T>) => {
     wsService.send(message);
   }, []);
 
@@ -110,7 +110,7 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
         const handlerKey = EVENT_TO_HANDLER[eventType];
         const handler = optionsRef.current[handlerKey] as ((p: unknown) => void) | undefined;
         handler?.(payload);
-      })
+      }),
     );
 
     return () => unsubs.forEach((u) => u());

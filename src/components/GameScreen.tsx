@@ -1,7 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useGame } from '../context/gameContext';
 import { Eye, EyeOff, Trophy, XCircle, AlertCircle, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameEndPayload, GameStartedPayload, UserEliminatedPayload, UserVotedPayload } from '../types/webSocket';
+import {
+  GameEndPayload,
+  GameStartedPayload,
+  UserEliminatedPayload,
+  UserVotedPayload,
+} from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 import { gameService, userService } from '../services';
 
@@ -27,7 +32,7 @@ export default function GameScreen() {
         word,
       });
     },
-    [dispatch, currentUser?.id]
+    [dispatch, currentUser?.id],
   );
 
   const handleUserVoted = useCallback(
@@ -38,7 +43,7 @@ export default function GameScreen() {
         updates: { votedFor: payload.target_id },
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleUserEliminated = useCallback(
@@ -49,7 +54,7 @@ export default function GameScreen() {
         wasImpostor: payload.was_impostor,
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleGameEnd = useCallback(
@@ -61,7 +66,7 @@ export default function GameScreen() {
         impostorId: payload.impostor_id,
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const { isConnected } = useWebSocket({
@@ -80,7 +85,7 @@ export default function GameScreen() {
       selectedPlayer,
       userId: currentUser?.id,
       isAlive: currentUser?.isAlive,
-      roomCode: room?.code
+      roomCode: room?.code,
     });
     if (!selectedPlayer || !currentUser?.isAlive || !room || !state.gameId) return;
 
@@ -175,9 +180,7 @@ export default function GameScreen() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">Round {room.round}</h1>
-              <p className="text-sm text-gray-600">
-                {alivePlayers.length} players remaining
-              </p>
+              <p className="text-sm text-gray-600">{alivePlayers.length} players remaining</p>
             </div>
             <div className="flex items-center gap-3">
               <div
@@ -210,9 +213,7 @@ export default function GameScreen() {
               <div>
                 <AlertCircle className="w-12 h-12 text-white mx-auto mb-3" />
                 <p className="text-white text-lg font-semibold">You are the Impostor!</p>
-                <p className="text-blue-100 text-sm mt-2">
-                  Blend in and avoid being voted out
-                </p>
+                <p className="text-blue-100 text-sm mt-2">Blend in and avoid being voted out</p>
               </div>
             ) : (
               <div>
@@ -315,9 +316,7 @@ export default function GameScreen() {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-600"
                 >
                   {player.username}
-                  {player.isImpostor && (
-                    <span className="ml-1 text-red-500">(Impostor)</span>
-                  )}
+                  {player.isImpostor && <span className="ml-1 text-red-500">(Impostor)</span>}
                 </div>
               ))}
             </div>

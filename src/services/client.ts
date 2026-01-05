@@ -1,4 +1,4 @@
-import type { ApiError } from '../types';
+import { ApiError } from "../types/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 const API_PREFIX = '/api/v1';
@@ -13,7 +13,7 @@ class ApiClientError extends Error {
   constructor(
     message: string,
     public status: number,
-    public data?: ApiError
+    public data?: ApiError,
   ) {
     super(message);
     this.name = 'ApiClientError';
@@ -24,7 +24,7 @@ async function request<T>(
   method: HttpMethod,
   endpoint: string,
   body?: unknown,
-  config?: RequestConfig
+  config?: RequestConfig,
 ): Promise<T> {
   const url = `${API_BASE_URL}${API_PREFIX}${endpoint}`;
 
@@ -49,7 +49,7 @@ async function request<T>(
     throw new ApiClientError(
       (data as ApiError).error ?? 'Request failed',
       response.status,
-      data as ApiError
+      data as ApiError,
     );
   }
 

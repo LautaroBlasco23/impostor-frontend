@@ -1,2 +1,2 @@
-export * from "./gameContext"
-export * from "./gameReducer"
+export * from './gameContext';
+export * from './gameReducer';

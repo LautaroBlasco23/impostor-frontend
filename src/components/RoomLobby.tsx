@@ -2,7 +2,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { useGame } from '../context';
 import { userService, gameService, roomService, wordService } from '../services';
 import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
-import { GameStartedPayload, UserJoinedPayload, UserLeftPayload, UserReadyPayload, CategorySetPayload } from '../types/webSocket';
+import {
+  GameStartedPayload,
+  UserJoinedPayload,
+  UserLeftPayload,
+  UserReadyPayload,
+  CategorySetPayload,
+} from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 
 export default function RoomLobby() {
@@ -44,14 +50,14 @@ export default function RoomLobby() {
         },
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleUserLeft = useCallback(
     (payload: UserLeftPayload) => {
       dispatch({ type: 'REMOVE_PLAYER', playerId: payload.user_id });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleUserReady = useCallback(
@@ -62,7 +68,7 @@ export default function RoomLobby() {
         updates: { isReady: payload.is_ready },
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleCategorySet = useCallback(
@@ -73,7 +79,7 @@ export default function RoomLobby() {
         category: payload.category,
       });
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleGameStarted = useCallback(
@@ -88,7 +94,7 @@ export default function RoomLobby() {
         word,
       });
     },
-    [dispatch, currentUser?.id]
+    [dispatch, currentUser?.id],
   );
 
   const userId = currentUser?.id;
@@ -97,18 +103,18 @@ export default function RoomLobby() {
   const { isConnected } = useWebSocket(
     userId && roomId
       ? {
-        userId,
-        roomId,
-        onUserJoined: handleUserJoined,
-        onUserLeft: handleUserLeft,
-        onUserReady: handleUserReady,
-        onCategorySet: handleCategorySet,
-        onGameStarted: handleGameStarted,
-      }
+          userId,
+          roomId,
+          onUserJoined: handleUserJoined,
+          onUserLeft: handleUserLeft,
+          onUserReady: handleUserReady,
+          onCategorySet: handleCategorySet,
+          onGameStarted: handleGameStarted,
+        }
       : {
-        userId: '',
-        roomId: '',
-      }
+          userId: '',
+          roomId: '',
+        },
   );
 
   const handleToggleReady = async () => {
@@ -267,23 +273,21 @@ export default function RoomLobby() {
               {room.players.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${player.isReady
-                    ? 'bg-green-50 border-green-200'
-                    : 'bg-gray-50 border-gray-200'
-                    }`}
+                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
+                    player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${player.isReady ? 'bg-green-500' : 'bg-gray-400'
-                        }`}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
+                        player.isReady ? 'bg-green-500' : 'bg-gray-400'
+                      }`}
                     >
                       {player.username.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-800">{player.username}</span>
-                      {player.id === room.hostId && (
-                        <Crown className="w-4 h-4 text-yellow-500" />
-                      )}
+                      {player.id === room.hostId && <Crown className="w-4 h-4 text-yellow-500" />}
                       {player.id === currentUser.id && (
                         <span className="text-xs text-gray-500">(you)</span>
                       )}
@@ -318,7 +322,9 @@ export default function RoomLobby() {
           {!selectedCategory && room.players.length >= 3 && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 text-center">
-                {isHost ? 'Please select a category to continue' : 'Waiting for host to select a category'}
+                {isHost
+                  ? 'Please select a category to continue'
+                  : 'Waiting for host to select a category'}
               </p>
             </div>
           )}
@@ -336,10 +342,11 @@ export default function RoomLobby() {
             <button
               onClick={handleToggleReady}
               disabled={!isConnected}
-              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${currentUser.isReady
-                ? 'bg-gray-400 hover:bg-gray-500 text-white'
-                : 'bg-green-500 hover:bg-green-600 text-white'
-                }`}
+              className={`w-full py-4 rounded-lg font-semibold transition shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                currentUser.isReady
+                  ? 'bg-gray-400 hover:bg-gray-500 text-white'
+                  : 'bg-green-500 hover:bg-green-600 text-white'
+              }`}
             >
               {currentUser.isReady ? 'Cancel Ready' : "I'm Ready"}
             </button>
@@ -348,10 +355,11 @@ export default function RoomLobby() {
               <button
                 onClick={handleStartGame}
                 disabled={!canStart || !isConnected}
-                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${canStart && isConnected
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                className={`w-full py-4 rounded-lg font-semibold transition shadow-md ${
+                  canStart && isConnected
+                    ? 'bg-blue-500 hover:bg-blue-600 text-white hover:shadow-lg'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
               >
                 {!selectedCategory
                   ? 'Select a category first'

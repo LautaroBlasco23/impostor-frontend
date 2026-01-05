@@ -90,7 +90,7 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
     case 'UPDATE_PLAYER': {
       if (!state.currentRoom) return state;
       const updatedPlayers = state.currentRoom.players.map((p) =>
-        p.id === action.playerId ? { ...p, ...action.updates } : p
+        p.id === action.playerId ? { ...p, ...action.updates } : p,
       );
       const updatedCurrentUser =
         state.currentUser?.id === action.playerId
@@ -135,7 +135,7 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
     case 'ELIMINATE_PLAYER': {
       if (!state.currentRoom) return state;
       const updatedPlayers = state.currentRoom.players.map((p) =>
-        p.id === action.playerId ? { ...p, isAlive: false } : { ...p, votedFor: null }
+        p.id === action.playerId ? { ...p, isAlive: false } : { ...p, votedFor: null },
       );
       const updatedCurrentUser =
         state.currentUser?.id === action.playerId
