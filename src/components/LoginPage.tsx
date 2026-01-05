@@ -224,7 +224,9 @@ export default function LoginPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{t('login.roomCodeLabel')}</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t('login.roomCodeLabel')}
+                </label>
                 <input
                   type="text"
                   value={roomCode}

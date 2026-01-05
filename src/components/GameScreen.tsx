@@ -169,13 +169,15 @@ export default function GameScreen() {
         <div className="bg-white rounded-2xl shadow-xl p-6 md:p-8 mb-4">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">{t('game.round', { round: room.round })}</h1>
-              <p className="text-sm text-gray-600">{t('game.remaining', { count: alivePlayers.length })}</p>
+              <h1 className="text-2xl font-bold text-gray-800">
+                {t('game.round', { round: room.round })}
+              </h1>
+              <p className="text-sm text-gray-600">
+                {t('game.remaining', { count: alivePlayers.length })}
+              </p>
             </div>
             <div className="flex items-center gap-3">
-              <div
-                className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}
-              >
+              <div className={`p-2 rounded-lg ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
                 {isConnected ? <Wifi className="w-5 h-5" /> : <WifiOff className="w-5 h-5" />}
               </div>
               <div className="text-right">
@@ -235,12 +237,13 @@ export default function GameScreen() {
                       key={player.id}
                       onClick={() => !hasVoted && setSelectedPlayer(player.id)}
                       disabled={hasVoted || isVoting}
-                      className={`w-full p-4 rounded-lg border-2 transition text-left ${hasVoted && currentUser.votedFor === player.id
-                        ? 'bg-red-50 border-red-500'
-                        : selectedPlayer === player.id
-                          ? 'bg-blue-50 border-blue-500'
-                          : 'bg-gray-50 border-gray-200 hover:border-blue-300'
-                        } ${hasVoted || isVoting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                      className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                        hasVoted && currentUser.votedFor === player.id
+                          ? 'bg-red-50 border-red-500'
+                          : selectedPlayer === player.id
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-gray-50 border-gray-200 hover:border-blue-300'
+                      } ${hasVoted || isVoting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -250,7 +253,9 @@ export default function GameScreen() {
                           <span className="font-medium text-gray-800">{player.username}</span>
                         </div>
                         {player.votedFor && (
-                          <span className="text-xs text-green-600 font-medium">✓ {t('game.voted')}</span>
+                          <span className="text-xs text-green-600 font-medium">
+                            ✓ {t('game.voted')}
+                          </span>
                         )}
                       </div>
                     </button>
@@ -261,10 +266,11 @@ export default function GameScreen() {
                 <button
                   onClick={handleVote}
                   disabled={!selectedPlayer || isVoting || !isConnected}
-                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md flex items-center justify-center gap-2 ${selectedPlayer && !isVoting && isConnected
-                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
+                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md flex items-center justify-center gap-2 ${
+                    selectedPlayer && !isVoting && isConnected
+                      ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
                   {isVoting ? (
                     <>
@@ -305,7 +311,9 @@ export default function GameScreen() {
                   className="bg-gray-100 border border-gray-300 rounded-lg px-3 py-1 text-sm text-gray-600"
                 >
                   {player.username}
-                  {player.isImpostor && <span className="ml-1 text-red-500">({t('game.impostor')})</span>}
+                  {player.isImpostor && (
+                    <span className="ml-1 text-red-500">({t('game.impostor')})</span>
+                  )}
                 </div>
               ))}
             </div>
