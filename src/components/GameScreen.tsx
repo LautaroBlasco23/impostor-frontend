@@ -106,7 +106,7 @@ export default function GameScreen() {
     try {
       await userService.delete(currentUser.id);
     } catch (err) {
-      console.log("An error occured when a user tried to leave the game")
+      console.log('An error occured when a user tried to leave the game');
     } finally {
       dispatch({ type: 'LEAVE_ROOM' });
     }
@@ -238,12 +238,13 @@ export default function GameScreen() {
                       key={player.id}
                       onClick={() => !hasVoted && setSelectedPlayer(player.id)}
                       disabled={hasVoted || isVoting}
-                      className={`w-full p-4 rounded-lg border-2 transition text-left ${hasVoted && currentUser.votedFor === player.id
-                        ? 'bg-red-50 border-red-500'
-                        : selectedPlayer === player.id
-                          ? 'bg-blue-50 border-blue-500'
-                          : 'bg-gray-50 border-gray-200 hover:border-blue-300'
-                        } ${hasVoted || isVoting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+                      className={`w-full p-4 rounded-lg border-2 transition text-left ${
+                        hasVoted && currentUser.votedFor === player.id
+                          ? 'bg-red-50 border-red-500'
+                          : selectedPlayer === player.id
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-gray-50 border-gray-200 hover:border-blue-300'
+                      } ${hasVoted || isVoting ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -266,10 +267,11 @@ export default function GameScreen() {
                 <button
                   onClick={handleVote}
                   disabled={!selectedPlayer || isVoting || !isConnected}
-                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md flex items-center justify-center gap-2 ${selectedPlayer && !isVoting && isConnected
-                    ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
+                  className={`w-full py-4 rounded-lg font-semibold transition shadow-md flex items-center justify-center gap-2 ${
+                    selectedPlayer && !isVoting && isConnected
+                      ? 'bg-red-500 hover:bg-red-600 text-white hover:shadow-lg'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
                   {isVoting ? (
                     <>
