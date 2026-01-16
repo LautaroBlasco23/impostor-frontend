@@ -17,9 +17,14 @@ class WebSocketService {
   private currentUserId: string | null = null;
   private currentRoomId: string | null = null;
   private intentionalDisconnect = false;
+  private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
 
   get isConnected(): boolean {
-    return this.ws?.readyState === WebSocket.OPEN;
+    return this.connectionState === 'connected' && this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  get isConnecting(): boolean {
+    return this.connectionState === 'connecting';
   }
 
   connect(userId: string, roomId: string): void {
@@ -47,6 +52,7 @@ class WebSocketService {
     this.currentUserId = userId;
     this.currentRoomId = roomId;
     this.intentionalDisconnect = false;
+    this.connectionState = 'connecting';
 
     const nickname = localStorage.getItem('nickname') || 'Anonymous';
     const wsUrl = `${WS_URL}/ws/${userId}?roomId=${roomId}&nickname=${encodeURIComponent(nickname)}`;
@@ -55,10 +61,12 @@ class WebSocketService {
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
+      this.connectionState = 'connected';
       this.connectListeners.forEach((cb) => cb());
     };
 
     this.ws.onclose = () => {
+      this.connectionState = 'disconnected';
       this.disconnectListeners.forEach((cb) => cb());
       this.ws = null;
 
@@ -68,6 +76,7 @@ class WebSocketService {
     };
 
     this.ws.onerror = () => {
+      this.connectionState = 'disconnected';
       this.ws?.close();
     };
 
@@ -113,6 +122,7 @@ class WebSocketService {
 
   private forceDisconnect(): void {
     this.intentionalDisconnect = true;
+    this.connectionState = 'disconnected';
 
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
@@ -122,6 +132,7 @@ class WebSocketService {
     this.reconnectAttempts = this.maxReconnectAttempts;
     this.currentUserId = null;
     this.currentRoomId = null;
+
     this.ws?.close();
     this.ws = null;
   }
@@ -145,6 +156,11 @@ class WebSocketService {
 
   onConnect(callback: () => void): () => void {
     this.connectListeners.add(callback);
+
+    if (this.isConnected) {
+      callback();
+    }
+
     return () => {
       this.connectListeners.delete(callback);
     };
@@ -152,6 +168,7 @@ class WebSocketService {
 
   onDisconnect(callback: () => void): () => void {
     this.disconnectListeners.add(callback);
+
     return () => {
       this.disconnectListeners.delete(callback);
     };

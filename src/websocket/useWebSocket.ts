@@ -39,6 +39,7 @@ interface UseWebSocketOptions {
 
 interface UseWebSocketReturn {
   isConnected: boolean;
+  isConnecting: boolean;
   sendMessage: <T>(message: ClientMessage<T>) => void;
 }
 
@@ -75,7 +76,8 @@ const EVENT_TO_HANDLER = {
 } as const;
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
-  const [isConnected, setIsConnected] = useState(wsService.isConnected);
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const optionsRef = useRef(options);
   const connectionRef = useRef<{ userId: string; roomId: string } | null>(null);
 
@@ -85,15 +87,16 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     wsService.send(message);
   }, []);
 
-  // Connection state listeners (once)
   useEffect(() => {
     const unsubConnect = wsService.onConnect(() => {
       setIsConnected(true);
+      setIsConnecting(false);
       optionsRef.current.onConnect?.();
     });
 
     const unsubDisconnect = wsService.onDisconnect(() => {
       setIsConnected(false);
+      setIsConnecting(false);
       optionsRef.current.onDisconnect?.();
     });
 
@@ -103,7 +106,6 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     };
   }, []);
 
-  // Event listeners (once)
   useEffect(() => {
     const unsubs = EVENT_TYPES.map((eventType) =>
       wsService.on(eventType, (payload: unknown) => {
@@ -116,7 +118,6 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
     return () => unsubs.forEach((u) => u());
   }, []);
 
-  // Connect ONLY when userId/roomId change meaningfully
   useEffect(() => {
     if (!options.userId || !options.roomId) return;
 
@@ -130,13 +131,15 @@ export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {
       roomId: options.roomId,
     };
 
+    setIsConnecting(true);
     wsService.connect(options.userId, options.roomId);
 
     return () => {
       wsService.disconnect();
       connectionRef.current = null;
+      setIsConnecting(false);
     };
   }, [options.userId, options.roomId]);
 
-  return { isConnected, sendMessage };
+  return { isConnected, isConnecting, sendMessage };
 }
