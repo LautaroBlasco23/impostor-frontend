@@ -8,6 +8,7 @@ type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 interface RequestConfig {
   headers?: Record<string, string>;
+  body?: unknown;
 }
 
 class ApiClientError extends Error {
@@ -28,17 +29,18 @@ async function request<T>(
   config?: RequestConfig,
 ): Promise<T> {
   const url = `${API_BASE_URL}${API_PREFIX}${endpoint}`;
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept-Language': i18n.language || 'en',
     ...config?.headers,
   };
 
+  const resolvedBody = body ?? config?.body;
+
   const response = await fetch(url, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: resolvedBody ? JSON.stringify(resolvedBody) : undefined,
   });
 
   if (response.status === 204) {
@@ -61,16 +63,12 @@ async function request<T>(
 export const apiClient = {
   get: <T>(endpoint: string, config?: RequestConfig) =>
     request<T>('GET', endpoint, undefined, config),
-
   post: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
     request<T>('POST', endpoint, body, config),
-
   put: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
     request<T>('PUT', endpoint, body, config),
-
   patch: <T>(endpoint: string, body?: unknown, config?: RequestConfig) =>
     request<T>('PATCH', endpoint, body, config),
-
   delete: <T>(endpoint: string, config?: RequestConfig) =>
     request<T>('DELETE', endpoint, undefined, config),
 };

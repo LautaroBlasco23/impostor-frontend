@@ -124,11 +124,6 @@ export default function RoomLobby() {
 
     try {
       await userService.toggleReady(currentUser.id);
-      dispatch({
-        type: 'UPDATE_PLAYER',
-        playerId: currentUser.id,
-        updates: { isReady: !currentUser.isReady },
-      });
     } catch (err) {
       console.error('Failed to toggle ready:', err);
     }

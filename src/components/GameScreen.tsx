@@ -9,7 +9,7 @@ import {
   UserVotedPayload,
 } from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
-import { gameService, userService } from '../services';
+import { gameService, userService, roomService } from '../services';
 
 export default function GameScreen() {
   const { t } = useTranslation();
@@ -18,6 +18,7 @@ export default function GameScreen() {
   const currentUser = state.currentUser;
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
 
   const handleGameStarted = useCallback(
     (payload: GameStartedPayload) => {
@@ -101,17 +102,6 @@ export default function GameScreen() {
     }
   };
 
-  const handleLeaveGame = async () => {
-    if (!currentUser) return;
-    try {
-      await userService.delete(currentUser.id);
-    } catch (err) {
-      console.log('An error occured when a user tried to leave the game');
-    } finally {
-      dispatch({ type: 'LEAVE_ROOM' });
-    }
-  };
-
   if (!room || !currentUser) return null;
 
   const alivePlayers = room.players.filter((p) => p.isAlive);
@@ -122,6 +112,49 @@ export default function GameScreen() {
   if (room.status === 'finished') {
     const impostors = room.players.filter((p) => p.isImpostor);
     const impostorEliminated = impostors.every((imp) => !imp.isAlive);
+    const isLeader = currentUser.id === room.hostId;
+
+    const handleReturnToRoom = async () => {
+      if (!state.gameId) return;
+      setIsLeaving(true);
+      try {
+        await gameService.returnToRoom(state.gameId, { user_id: currentUser.id });
+        dispatch({
+          type: 'SET_ROOM',
+          room: {
+            ...room,
+            status: 'waiting',
+            currentWord: null,
+            round: 1,
+            players: room.players.map((p) => ({
+              ...p,
+              isAlive: false,
+              isImpostor: false,
+              votedFor: null,
+              isReady: false,
+            })),
+          },
+        });
+      } catch (err) {
+        console.error('Failed to return to room:', err);
+      } finally {
+        setIsLeaving(false);
+      }
+    };
+
+    const handleLeaveGame = async () => {
+      setIsLeaving(true);
+      try {
+        if (isLeader) {
+          await roomService.delete(room.code, currentUser.id);
+        }
+        await userService.delete(currentUser.id);
+      } catch (err) {
+        console.error('Failed to leave game:', err);
+      } finally {
+        dispatch({ type: 'LEAVE_ROOM' });
+      }
+    };
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4 flex items-center justify-center">
@@ -152,12 +185,26 @@ export default function GameScreen() {
                 </div>
               ))}
             </div>
-            <button
-              onClick={handleLeaveGame}
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 rounded-lg transition shadow-md hover:shadow-lg"
-            >
-              {t('game.backToHome')}
-            </button>
+            <div className="flex flex-col gap-3">
+              {isLeader && (
+                <button
+                  onClick={handleReturnToRoom}
+                  disabled={isLeaving}
+                  className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold py-3 rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                  {isLeaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {t('game.playAgain')}
+                </button>
+              )}
+              <button
+                onClick={handleLeaveGame}
+                disabled={isLeaving}
+                className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white font-semibold py-3 rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+              >
+                {isLeaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {isLeader ? t('game.closeRoom') : t('game.backToHome')}
+              </button>
+            </div>
           </div>
         </div>
       </div>

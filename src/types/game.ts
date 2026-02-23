@@ -74,3 +74,7 @@ export type GameAction =
     }
   | { type: 'SET_DISCONNECTED_USER'; info: DisconnectedUserInfo | null }
   | { type: 'CANCEL_GAME'; reason: string; word: string; impostorId: string };
+
+export interface ReturnToRoomRequest {
+  user_id: string;
+}
