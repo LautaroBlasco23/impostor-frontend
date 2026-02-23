@@ -55,6 +55,8 @@ export const resources = {
         theWordWas: 'The word was:',
         impostorWas: 'The impostor was:',
         backToHome: 'Back to Home',
+        playAgain: 'Play Again',
+        closeRoom: 'Close Room',
         round: 'Round {{round}}',
         remaining: '{{count}} players remaining',
         yourRole: 'Your role',
@@ -75,7 +77,7 @@ export const resources = {
         eliminatedPlayers: 'Eliminated Players',
         restoring: 'Restoring your session...',
       },
-    },
+    }
   },
   es: {
     translation: {
@@ -129,6 +131,8 @@ export const resources = {
         theWordWas: 'La palabra era:',
         impostorWas: 'El impostor era:',
         backToHome: 'Volver al inicio',
+        playAgain: 'Jugar de nuevo',
+        closeRoom: 'Cerrar sala',
         round: 'Ronda {{round}}',
         remaining: '{{count}} jugadores restantes',
         yourRole: 'Tu rol',
@@ -149,7 +153,7 @@ export const resources = {
         eliminatedPlayers: 'Jugadores eliminados',
         restoring: 'Restaurando tu sesión...',
       },
-    },
+    }
   },
 } as const;
 
