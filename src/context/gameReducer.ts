@@ -202,6 +202,22 @@ export function gameReducer(state: AppGameState, action: GameAction): AppGameSta
       };
     }
 
+    case 'RESET_TO_LOBBY': {
+      if (!state.currentUser) return { ...state, currentRoom: action.room, gameId: null };
+      // Sync currentUser with the matching player from the new room
+      const updatedUser = action.room.players.find((p) => p.id === state.currentUser!.id);
+      return {
+        ...state,
+        currentRoom: action.room,
+        currentUser: updatedUser || state.currentUser,
+        gameId: null,
+      };
+    }
+
+    case 'RETURN_TO_HOME':
+      sessionPersistence.clear();
+      return { ...state, currentRoom: null, gameId: null };
+
     default:
       return state;
   }
