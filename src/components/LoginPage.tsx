@@ -174,6 +174,7 @@ export default function LoginPage() {
                 onKeyDown={(e) => handleKeyDown(e, handleSetUsername)}
                 placeholder={t('login.usernamePlaceholder')}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+                autoComplete="username"
                 maxLength={20}
                 disabled={isLoading}
               />
@@ -233,6 +234,7 @@ export default function LoginPage() {
                   onChange={(e) => setRoomCode(e.target.value)}
                   onKeyDown={(e) => handleKeyDown(e, handleJoinRoom)}
                   placeholder={t('login.roomCodePlaceholder')}
+                  autoComplete="off"
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
                   maxLength={36}
                   disabled={isLoading}
