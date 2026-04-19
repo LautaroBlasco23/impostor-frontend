@@ -73,7 +73,9 @@ export type GameAction =
       word: string | null;
     }
   | { type: 'SET_DISCONNECTED_USER'; info: DisconnectedUserInfo | null }
-  | { type: 'CANCEL_GAME'; reason: string; word: string; impostorId: string };
+  | { type: 'CANCEL_GAME'; reason: string; word: string; impostorId: string }
+  | { type: 'RESET_TO_LOBBY'; room: RoomState }
+  | { type: 'RETURN_TO_HOME' };
 
 export interface ReturnToRoomRequest {
   user_id: string;

@@ -7,6 +7,7 @@ import {
   GameStartedPayload,
   UserEliminatedPayload,
   UserVotedPayload,
+  PlayAgainInitiatedPayload,
 } from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 import { gameService, userService, roomService } from '../services';
@@ -19,6 +20,8 @@ export default function GameScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [playAgainPayload, setPlayAgainPayload] = useState<PlayAgainInitiatedPayload | null>(null);
+  const [isRejoining, setIsRejoining] = useState(false);
 
   const handleGameStarted = useCallback(
     (payload: GameStartedPayload) => {
@@ -69,6 +72,68 @@ export default function GameScreen() {
     [dispatch],
   );
 
+  const handlePlayAgainInitiated = useCallback(
+    (payload: PlayAgainInitiatedPayload) => {
+      if (!room || !currentUser) return;
+      if (currentUser.id === payload.leader_id) {
+        // Leader: backend already placed them in lobby, reset state reactively
+        dispatch({
+          type: 'RESET_TO_LOBBY',
+          room: {
+            ...room,
+            status: 'waiting',
+            currentWord: null,
+            round: 0,
+            players: [
+              { ...currentUser, isAlive: true, isImpostor: false, votedFor: null, isReady: false },
+            ],
+          },
+        });
+      } else {
+        setPlayAgainPayload(payload);
+      }
+    },
+    [room, currentUser, dispatch],
+  );
+
+  const handleRejoinRoom = useCallback(async () => {
+    if (!currentUser || !playAgainPayload) return;
+    setIsRejoining(true);
+    try {
+      await userService.joinRoom(currentUser.id, { room_id: playAgainPayload.room_id });
+      const [fetchedRoom, users] = await Promise.all([
+        roomService.get(playAgainPayload.room_id),
+        userService.getByRoom(playAgainPayload.room_id),
+      ]);
+      dispatch({
+        type: 'RESET_TO_LOBBY',
+        room: {
+          code: fetchedRoom.id,
+          players: users.map((u) => ({
+            id: u.id,
+            username: u.nickname,
+            isReady: u.is_ready,
+            isImpostor: false,
+            isAlive: true,
+            votedFor: null,
+          })),
+          hostId: fetchedRoom.leader_id,
+          status: 'waiting',
+          currentWord: null,
+          round: 0,
+        },
+      });
+    } catch (err) {
+      console.error('Failed to rejoin room:', err);
+    } finally {
+      setIsRejoining(false);
+    }
+  }, [currentUser, playAgainPayload, dispatch]);
+
+  const handleContinueToHome = useCallback(() => {
+    dispatch({ type: 'RETURN_TO_HOME' });
+  }, [dispatch]);
+
   const { isConnected } = useWebSocket({
     userId: currentUser?.id ?? '',
     roomId: room?.code ?? '',
@@ -77,6 +142,7 @@ export default function GameScreen() {
     onUserEliminated: handleUserEliminated,
     onGameWon: handleGameEnd,
     onGameLost: handleGameEnd,
+    onPlayAgainInitiated: handlePlayAgainInitiated,
   });
 
   const handleVote = async () => {
@@ -114,30 +180,14 @@ export default function GameScreen() {
     const impostorEliminated = impostors.every((imp) => !imp.isAlive);
     const isLeader = currentUser.id === room.hostId;
 
-    const handleReturnToRoom = async () => {
+    const handleInitiatePlayAgain = async () => {
       if (!state.gameId) return;
       setIsLeaving(true);
       try {
         await gameService.returnToRoom(state.gameId, { user_id: currentUser.id });
-        dispatch({
-          type: 'SET_ROOM',
-          room: {
-            ...room,
-            status: 'waiting',
-            currentWord: null,
-            round: 1,
-            players: room.players.map((p) => ({
-              ...p,
-              isAlive: false,
-              isImpostor: false,
-              votedFor: null,
-              isReady: false,
-            })),
-          },
-        });
+        // State transitions via play_again_initiated WS event
       } catch (err) {
-        console.error('Failed to return to room:', err);
-      } finally {
+        console.error('Failed to initiate play again:', err);
         setIsLeaving(false);
       }
     };
@@ -158,6 +208,31 @@ export default function GameScreen() {
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4 flex items-center justify-center">
+        {playAgainPayload && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full text-center">
+              <h2 className="text-xl font-bold text-gray-800 mb-3">{t('game.playAgainTitle')}</h2>
+              <p className="text-gray-600 mb-6">{t('game.playAgainPrompt')}</p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleRejoinRoom}
+                  disabled={isRejoining}
+                  className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold py-3 rounded-lg transition shadow-md flex items-center justify-center gap-2"
+                >
+                  {isRejoining ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  {t('game.rejoinRoom')}
+                </button>
+                <button
+                  onClick={handleContinueToHome}
+                  disabled={isRejoining}
+                  className="w-full bg-gray-200 hover:bg-gray-300 disabled:opacity-50 text-gray-800 font-semibold py-3 rounded-lg transition"
+                >
+                  {t('game.backToHome')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full">
           <div className="text-center">
             <div
@@ -188,7 +263,7 @@ export default function GameScreen() {
             <div className="flex flex-col gap-3">
               {isLeader && (
                 <button
-                  onClick={handleReturnToRoom}
+                  onClick={handleInitiatePlayAgain}
                   disabled={isLeaving}
                   className="w-full bg-green-500 hover:bg-green-600 disabled:bg-green-300 text-white font-semibold py-3 rounded-lg transition shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                 >
