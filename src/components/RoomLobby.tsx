@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useGame } from '../context';
 import { userService, gameService, roomService, wordService } from '../services';
-import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff } from 'lucide-react';
+import { Users, Crown, Check, X, Copy, LogOut, Loader2, Wifi, WifiOff, UserX } from 'lucide-react';
 import {
   GameStartedPayload,
   UserJoinedPayload,
   UserLeftPayload,
   UserReadyPayload,
   CategorySetPayload,
+  UserDisconnectedPayload,
+  UserReconnectedPayload,
+  UserKickedPayload,
 } from '../types/webSocket';
 import { useWebSocket } from '../websocket/useWebSocket';
 
@@ -20,6 +23,9 @@ export default function RoomLobby() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [disconnectedCountdowns, setDisconnectedCountdowns] = useState<Record<string, number>>({});
+  const [kickedMessage, setKickedMessage] = useState<string | null>(null);
+  const countdownIntervalsRef = useRef<Record<string, ReturnType<typeof setInterval>>>({});
 
   useEffect(() => {
     const loadCategories = async () => {
@@ -37,6 +43,26 @@ export default function RoomLobby() {
     };
     loadCategories();
   }, [room?.category]);
+
+  // Cleanup all intervals on unmount
+  useEffect(() => {
+    const intervals = countdownIntervalsRef.current;
+    return () => {
+      Object.values(intervals).forEach(clearInterval);
+    };
+  }, []);
+
+  const clearCountdown = useCallback((userId: string) => {
+    if (countdownIntervalsRef.current[userId]) {
+      clearInterval(countdownIntervalsRef.current[userId]);
+      delete countdownIntervalsRef.current[userId];
+    }
+    setDisconnectedCountdowns((prev) => {
+      const next = { ...prev };
+      delete next[userId];
+      return next;
+    });
+  }, []);
 
   const handleUserJoined = useCallback(
     (payload: UserJoinedPayload) => {
@@ -99,6 +125,74 @@ export default function RoomLobby() {
     [dispatch, currentUser?.id],
   );
 
+  const handleUserKicked = useCallback(
+    (payload: UserKickedPayload) => {
+      if (payload.user_id === currentUser?.id) {
+        const msg = payload.reason === 'kicked' ? t('lobby.kicked') : t('lobby.disconnectedKick');
+        setKickedMessage(msg);
+        setTimeout(() => {
+          dispatch({ type: 'LEAVE_ROOM' });
+        }, 2000);
+      } else {
+        clearCountdown(payload.user_id);
+        dispatch({ type: 'REMOVE_PLAYER', playerId: payload.user_id });
+      }
+    },
+    [currentUser?.id, dispatch, clearCountdown, t],
+  );
+
+  const handleUserDisconnected = useCallback((payload: UserDisconnectedPayload) => {
+    // Clear any existing interval for this user
+    if (countdownIntervalsRef.current[payload.user_id]) {
+      clearInterval(countdownIntervalsRef.current[payload.user_id]);
+    }
+
+    setDisconnectedCountdowns((prev) => ({
+      ...prev,
+      [payload.user_id]: payload.timeout_seconds,
+    }));
+
+    const interval = setInterval(() => {
+      setDisconnectedCountdowns((prev) => {
+        const current = prev[payload.user_id];
+        if (current === undefined || current <= 1) {
+          clearInterval(countdownIntervalsRef.current[payload.user_id]);
+          delete countdownIntervalsRef.current[payload.user_id];
+          const next = { ...prev };
+          delete next[payload.user_id];
+          return next;
+        }
+        return { ...prev, [payload.user_id]: current - 1 };
+      });
+    }, 1000);
+
+    countdownIntervalsRef.current[payload.user_id] = interval;
+  }, []);
+
+  const handleUserReconnected = useCallback(
+    (payload: UserReconnectedPayload) => {
+      clearCountdown(payload.user_id);
+      dispatch({
+        type: 'UPDATE_PLAYER',
+        playerId: payload.user_id,
+        updates: { isReady: false },
+      });
+    },
+    [clearCountdown, dispatch],
+  );
+
+  const handleKickPlayer = useCallback(
+    async (playerId: string) => {
+      if (!room || !currentUser) return;
+      try {
+        await roomService.kickUser(room.code, playerId, currentUser.id);
+      } catch (err) {
+        console.error('Failed to kick player:', err);
+      }
+    },
+    [room, currentUser],
+  );
+
   const userId = currentUser?.id;
   const roomId = room?.code;
 
@@ -112,6 +206,9 @@ export default function RoomLobby() {
           onUserReady: handleUserReady,
           onCategorySet: handleCategorySet,
           onGameStarted: handleGameStarted,
+          onUserKicked: handleUserKicked,
+          onUserDisconnected: handleUserDisconnected,
+          onUserReconnected: handleUserReconnected,
         }
       : {
           userId: '',
@@ -171,6 +268,19 @@ export default function RoomLobby() {
   };
 
   if (!room || !currentUser) return null;
+
+  if (kickedMessage) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 text-center max-w-sm w-full">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <UserX className="w-8 h-8 text-red-500" />
+          </div>
+          <p className="text-lg font-semibold text-gray-800">{kickedMessage}</p>
+        </div>
+      </div>
+    );
+  }
 
   const allReady = room.players.length >= 3 && room.players.every((p) => p.isReady);
   const isHost = currentUser.id === room.hostId;
@@ -262,44 +372,72 @@ export default function RoomLobby() {
           <div className="mb-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">{t('lobby.players_title')}</h2>
             <div className="space-y-2">
-              {room.players.map((player) => (
-                <div
-                  key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
-                    player.isReady ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
-                        player.isReady ? 'bg-green-500' : 'bg-gray-400'
-                      }`}
-                    >
-                      {player.username.charAt(0).toUpperCase()}
+              {room.players.map((player) => {
+                const countdown = disconnectedCountdowns[player.id];
+                const isDisconnected = countdown !== undefined;
+
+                return (
+                  <div
+                    key={player.id}
+                    className={`flex items-center justify-between p-4 rounded-lg border-2 transition ${
+                      isDisconnected
+                        ? 'bg-amber-50 border-amber-300'
+                        : player.isReady
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold text-white ${
+                          isDisconnected
+                            ? 'bg-amber-400'
+                            : player.isReady
+                              ? 'bg-green-500'
+                              : 'bg-gray-400'
+                        }`}
+                      >
+                        {player.username.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800">{player.username}</span>
+                        {player.id === room.hostId && <Crown className="w-4 h-4 text-yellow-500" />}
+                        {player.id === currentUser.id && (
+                          <span className="text-xs text-gray-500">{t('lobby.you')}</span>
+                        )}
+                        {isDisconnected && (
+                          <span className="text-xs font-medium text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full">
+                            ⏱ {t('lobby.disconnecting', { count: countdown })}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-medium text-gray-800">{player.username}</span>
-                      {player.id === room.hostId && <Crown className="w-4 h-4 text-yellow-500" />}
-                      {player.id === currentUser.id && (
-                        <span className="text-xs text-gray-500">{t('lobby.you')}</span>
+                      {!isDisconnected &&
+                        (player.isReady ? (
+                          <span className="flex items-center gap-1 text-green-600 font-medium">
+                            <Check className="w-5 h-5" />
+                            <span className="hidden sm:inline">{t('lobby.ready')}</span>
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-gray-500">
+                            <X className="w-5 h-5" />
+                            <span className="hidden sm:inline">{t('lobby.notReady')}</span>
+                          </span>
+                        ))}
+                      {isHost && player.id !== currentUser.id && (
+                        <button
+                          onClick={() => handleKickPlayer(player.id)}
+                          title={t('lobby.kickPlayer')}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
+                        >
+                          <UserX className="w-4 h-4" />
+                        </button>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {player.isReady ? (
-                      <span className="flex items-center gap-1 text-green-600 font-medium">
-                        <Check className="w-5 h-5" />
-                        <span className="hidden sm:inline">{t('lobby.ready')}</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-gray-500">
-                        <X className="w-5 h-5" />
-                        <span className="hidden sm:inline">{t('lobby.notReady')}</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

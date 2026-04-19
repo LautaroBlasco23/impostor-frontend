@@ -12,4 +12,8 @@ export const roomService = {
     apiClient.put<ApiMessage>(`${BASE_PATH}/${roomId}/category`, request),
   delete: (id: string, leaderId: string): Promise<void> =>
     apiClient.delete<void>(`${BASE_PATH}/${id}`, { body: { leader_id: leaderId } }),
+  kickUser: (roomId: string, userId: string, leaderId: string): Promise<void> =>
+    apiClient.delete<void>(`${BASE_PATH}/${roomId}/users/${userId}`, {
+      body: { leader_id: leaderId },
+    }),
 };
