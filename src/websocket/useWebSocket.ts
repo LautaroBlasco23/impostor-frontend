@@ -13,7 +13,9 @@ import type {
   RoomUpdatePayload,
   UserDisconnectedPayload,
   UserReconnectedPayload,
+  UserKickedPayload,
   GameCancelledPayload,
+  PlayAgainInitiatedPayload,
   ClientMessage,
 } from '../types/webSocket';
 
@@ -34,7 +36,9 @@ interface UseWebSocketOptions {
   onRoomUpdate?: (p: RoomUpdatePayload) => void;
   onUserDisconnected?: (p: UserDisconnectedPayload) => void;
   onUserReconnected?: (p: UserReconnectedPayload) => void;
+  onUserKicked?: (p: UserKickedPayload) => void;
   onGameCancelled?: (p: GameCancelledPayload) => void;
+  onPlayAgainInitiated?: (p: PlayAgainInitiatedPayload) => void;
 }
 
 interface UseWebSocketReturn {
@@ -56,7 +60,9 @@ const EVENT_TYPES: WebSocketEventType[] = [
   'room_update',
   'user_disconnected',
   'user_reconnected',
+  'user_kicked',
   'game_cancelled',
+  'play_again_initiated',
 ];
 
 const EVENT_TO_HANDLER = {
@@ -72,7 +78,9 @@ const EVENT_TO_HANDLER = {
   room_update: 'onRoomUpdate',
   user_disconnected: 'onUserDisconnected',
   user_reconnected: 'onUserReconnected',
+  user_kicked: 'onUserKicked',
   game_cancelled: 'onGameCancelled',
+  play_again_initiated: 'onPlayAgainInitiated',
 } as const;
 
 export function useWebSocket(options: UseWebSocketOptions): UseWebSocketReturn {

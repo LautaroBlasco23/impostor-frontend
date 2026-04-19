@@ -11,7 +11,9 @@ export type WebSocketEventType =
   | 'room_update'
   | 'user_disconnected'
   | 'user_reconnected'
-  | 'game_cancelled';
+  | 'user_kicked'
+  | 'game_cancelled'
+  | 'play_again_initiated';
 
 export interface WebSocketEvent<T = unknown> {
   type: WebSocketEventType;
@@ -93,11 +95,23 @@ export interface UserReconnectedPayload {
   game_state: string;
 }
 
+export interface UserKickedPayload {
+  user_id: string;
+  nickname: string;
+  reason: 'kicked' | 'disconnected';
+}
+
 export interface GameCancelledPayload {
   game_id: string;
   reason: string;
   impostor_id: string;
   word: string;
+}
+
+export interface PlayAgainInitiatedPayload {
+  room_id: string;
+  leader_id: string;
+  message: string;
 }
 
 export type WebSocketEventPayload =
@@ -112,7 +126,9 @@ export type WebSocketEventPayload =
   | RoomUpdatePayload
   | UserDisconnectedPayload
   | UserReconnectedPayload
-  | GameCancelledPayload;
+  | UserKickedPayload
+  | GameCancelledPayload
+  | PlayAgainInitiatedPayload;
 
 export type ClientMessageType = 'reconnect';
 

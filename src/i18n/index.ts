@@ -47,6 +47,10 @@ export const resources = {
         selectCategoryFirst: 'Select a category first',
         startGame: 'Start Game',
         waitingPlayers: 'Waiting for all players...',
+        kickPlayer: 'Kick',
+        kicked: 'You were kicked from the room',
+        disconnectedKick: 'You were removed due to disconnection',
+        disconnecting: 'Disconnecting in {{count}}s',
       },
       game: {
         gameOver: 'Game Over!',
@@ -57,6 +61,9 @@ export const resources = {
         backToHome: 'Back to Home',
         playAgain: 'Play Again',
         closeRoom: 'Close Room',
+        playAgainTitle: 'Play Again?',
+        playAgainPrompt: 'The leader wants to start a new game. Do you want to rejoin?',
+        rejoinRoom: 'Rejoin Room',
         round: 'Round {{round}}',
         remaining: '{{count}} players remaining',
         yourRole: 'Your role',
@@ -77,7 +84,7 @@ export const resources = {
         eliminatedPlayers: 'Eliminated Players',
         restoring: 'Restoring your session...',
       },
-    }
+    },
   },
   es: {
     translation: {
@@ -123,6 +130,10 @@ export const resources = {
         selectCategoryFirst: 'Elige una categoría primero',
         startGame: 'Empezar Juego',
         waitingPlayers: 'Esperando a todos los jugadores...',
+        kickPlayer: 'Expulsar',
+        kicked: 'Fuiste expulsado de la sala',
+        disconnectedKick: 'Fuiste removido por desconexión',
+        disconnecting: 'Desconectando en {{count}}s',
       },
       game: {
         gameOver: '¡Fin del juego!',
@@ -133,6 +144,9 @@ export const resources = {
         backToHome: 'Volver al inicio',
         playAgain: 'Jugar de nuevo',
         closeRoom: 'Cerrar sala',
+        playAgainTitle: '¿Jugar de nuevo?',
+        playAgainPrompt: 'El líder quiere comenzar una nueva partida. ¿Deseas unirte?',
+        rejoinRoom: 'Unirse de nuevo',
         round: 'Ronda {{round}}',
         remaining: '{{count}} jugadores restantes',
         yourRole: 'Tu rol',
@@ -153,7 +167,7 @@ export const resources = {
         eliminatedPlayers: 'Jugadores eliminados',
         restoring: 'Restaurando tu sesión...',
       },
-    }
+    },
   },
 } as const;
 
